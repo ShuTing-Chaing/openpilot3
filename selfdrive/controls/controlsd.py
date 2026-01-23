@@ -94,8 +94,8 @@ class Controls:
     # TODO: de-couple controlsd with card/conflate on carState without introducing controls mismatches
     self.car_state_sock = messaging.sub_sock('carState', timeout=20)
 
-    self.d_camera_hardware_missing = self.params.get_bool("DriverCameraHardwareMissing") and not is_registered_device()
-    if self.d_camera_hardware_missing:
+    self.d_camera_hardware_missing = self.params.get_bool("DriverCameraHardwareMissing") or not is_registered_device()
+    if True:
       IGNORE_PROCESSES.update({"dmonitoringd", "dmonitoringmodeld"})
       self.camera_packets.remove("driverCameraState")
 
@@ -337,7 +337,7 @@ class Controls:
 
     not_running = {p.name for p in self.sm['managerState'].processes if not p.running and p.shouldBeRunning}
     if self.sm.recv_frame['managerState'] and (not_running - IGNORE_PROCESSES):
-      self.events.add(EventName.processNotRunning)
+      pass#self.events.add(EventName.processNotRunning)
       self.process_not_running = True
       if not_running != self.not_running_prev:
         cloudlog.event("process_not_running", not_running=not_running, error=True)
@@ -368,11 +368,11 @@ class Controls:
     no_system_errors = (not has_disable_events) or (len(self.events) == num_events)
     if not self.sm.all_checks() and no_system_errors:
       if not self.sm.all_alive():
-        self.events.add(EventName.commIssue)
+        pass#self.events.add(EventName.commIssue)
       elif not self.sm.all_freq_ok():
-        self.events.add(EventName.commIssueAvgFreq)
+        pass#self.events.add(EventName.commIssueAvgFreq)
       else:
-        self.events.add(EventName.commIssue)
+        pass#self.events.add(EventName.commIssue)
 
       logs = {
         'invalid': [s for s, valid in self.sm.valid.items() if not valid],
@@ -400,7 +400,7 @@ class Controls:
 
     # conservative HW alert. if the data or frequency are off, locationd will throw an error
     if any((self.sm.frame - self.sm.recv_frame[s])*DT_CTRL > 10. for s in self.sensor_packets):
-      self.events.add(EventName.sensorDataInvalid)
+      pass#self.events.add(EventName.sensorDataInvalid)
 
     if not REPLAY:
       # Check for mismatch between openpilot and car's PCM
@@ -431,7 +431,7 @@ class Controls:
     if not SIMULATION or REPLAY:
       # Not show in first 1 km to allow for driving out of garage. This event shows after 5 minutes
       if not self.sm['liveLocationKalman'].gpsOK and self.sm['liveLocationKalman'].inputsOK and (self.distance_traveled > 1500):
-        self.events.add(EventName.noGps)
+        pass#self.events.add(EventName.noGps)
       if self.sm['liveLocationKalman'].gpsOK:
         self.distance_traveled = 0
       self.distance_traveled += CS.vEgo * DT_CTRL
