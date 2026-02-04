@@ -59,7 +59,7 @@ def manager_init() -> None:
     ("MadsCruiseMain", "1"),
     ("CustomBootScreen", "0"),
     ("CustomOffsets", "0"),
-    ("DevUIInfo", "0"),
+    ("DevUIInfo", "3"),
     ("DisableOnroadUploads", "0"),
     ("DisengageLateralOnBrake", "0"),
     ("DrivingModelGeneration", "0"),
