@@ -1,5 +1,6 @@
 {
   "=== Not Selected ===": "",
+  "A-Toyota Corolla 2020-22": "TOYOTA_COROLLA_TSS2",
   "Acura ILX 2016-19": "ACURA_ILX",
   "Acura RDX 2016-18": "ACURA_RDX",
   "Acura RDX 2019-22": "ACURA_RDX_3G",
@@ -240,7 +241,7 @@
   "Toyota Camry Hybrid 2018-20": "TOYOTA_CAMRY",
   "Toyota Camry Hybrid 2021-24": "TOYOTA_CAMRY_TSS2",
   "Toyota Corolla 2017-19": "TOYOTA_COROLLA",
-  "Toyota Corolla 2020-22": "TOYOTA_COROLLA_TSS2",
+
   "Toyota Corolla Cross (Non-US only) 2020-23": "TOYOTA_COROLLA_TSS2",
   "Toyota Corolla Cross Hybrid (Non-US only) 2020-22": "TOYOTA_COROLLA_TSS2",
   "Toyota Corolla Hatchback 2019-22": "TOYOTA_COROLLA_TSS2",
