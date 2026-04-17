@@ -114,7 +114,7 @@ class PowerMonitoring:
 
     sp_max_time_val_s = MAX_TIME_OFFROAD_S
 
-    return 0 < sp_max_time_val_s <= offroad_time
+    return 0 
 
   # See if we need to shutdown
   def should_shutdown(self, ignition: bool, in_car: bool, offroad_timestamp: float | None, started_seen: bool):
