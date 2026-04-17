@@ -13,7 +13,7 @@ CAR_BATTERY_CAPACITY_uWh = 30e6
 CAR_CHARGING_RATE_W = 45
 
 VBATT_PAUSE_CHARGING = 0.1           # Lower limit on the LPF car battery voltage
-MAX_TIME_OFFROAD_S = 30*36000000000
+MAX_TIME_OFFROAD_S = 30*3600000000000000000000
 MIN_ON_TIME_S = 3600
 DELAY_SHUTDOWN_TIME_S = 300 # Wait at least DELAY_SHUTDOWN_TIME_S seconds after offroad_time to shutdown.
 VOLTAGE_SHUTDOWN_MIN_OFFROAD_TIME_S = 60
@@ -111,11 +111,8 @@ class PowerMonitoring:
     :param offroad_time: Time spent offroad in seconds
     :return: True if the max time offroad has been exceeded, False otherwise
     """
-    try:
-      param = self.params.get("MaxTimeOffroad")
-      sp_max_time_val_s = param * 60 if param is not None and param >= 0 else MAX_TIME_OFFROAD_S
-    except Exception:
-      sp_max_time_val_s = MAX_TIME_OFFROAD_S
+
+    sp_max_time_val_s = MAX_TIME_OFFROAD_S
 
     return 0 < sp_max_time_val_s <= offroad_time
 
