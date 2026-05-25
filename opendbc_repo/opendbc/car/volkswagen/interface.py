@@ -193,7 +193,7 @@ class CarInterface(CarInterfaceBase):
     # check pre conditions for successful radar disable
     # put the device into dashcam mode if neccessary: no relay switching, no bus blocking with relay malfunction
     if CP.openpilotLongitudinalControl and (CP.flags & VolkswagenFlags.DISABLE_RADAR):
-      if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
+      if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO | VolkswagenFlags.MQB_EVO_GEN2):
         if not CarInterface._is_engine_state_allowed_meb(can_recv):
           CP.dashcamOnly = True
           CP.dashcamOnlyReason = DashcamOnlyReason.radarDisableEngineOn
@@ -207,7 +207,7 @@ class CarInterface(CarInterfaceBase):
     # Programming session is also rejected while engine on but recovers after key off on
     if CP.openpilotLongitudinalControl and (CP.flags & VolkswagenFlags.DISABLE_RADAR):
       RADAR_DISABLE_STATE["error"] = False
-      if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
+      if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO | VolkswagenFlags.MQB_EVO_GEN2):
         if CarInterface._is_engine_state_allowed_meb(can_recv): # prevent programming session request, it will not work
           carlog.warning("Trying to disable the radar")
           if not CarInterface._radar_communication_control(CP, can_recv, can_send):
@@ -221,7 +221,7 @@ class CarInterface(CarInterfaceBase):
     # deinit is currently never executed in current state of Openpilot
     # CarD is just killed, no reaction handling on SIGINT
     if CP.openpilotLongitudinalControl and (CP.flags & VolkswagenFlags.DISABLE_RADAR):
-      if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO):
+      if CP.flags & (VolkswagenFlags.MEB | VolkswagenFlags.MQB_EVO | VolkswagenFlags.MQB_EVO_GEN2):
         CarInterface._radar_communication_control(CP, can_recv, can_send, disable=False)
 
   @staticmethod
