@@ -10,14 +10,13 @@ C3 Client — 部署到 C3 设备上
 """
 
 import asyncio
+import importlib
 import json
 import os
 import subprocess
 import sys
 import traceback
 from datetime import datetime
-
-import websockets
 
 # openpilot 基础模块
 from openpilot.system.hardware import HARDWARE, PC
@@ -142,8 +141,28 @@ async def handle_message(data, ws):
 
 
 # ================= 主循环 =================
+def _ensure_websockets():
+  """确保 websockets 可用，未安装则尝试自动安装"""
+  try:
+    return importlib.import_module("websockets")
+  except ImportError:
+    print("[C3] 🔧 未检测到 websockets 模块，尝试自动安装...")
+    try:
+      subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "websockets", "--break-system-packages"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30
+      )
+      print("[C3] ✅ websockets 安装成功")
+      return importlib.import_module("websockets")
+    except Exception:
+      print("[C3] ❌ 自动安装失败！请手动执行: pip install websockets")
+      sys.exit(1)
+
+
 async def run():
   """异步主循环（连接、注册、心跳、消息处理、自动重连）"""
+  websockets = _ensure_websockets()
+
   serial = get_serial()
   dongle_id = get_dongle_id()
   git_branch = get_git_branch()
