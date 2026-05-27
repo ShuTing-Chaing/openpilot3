@@ -283,6 +283,18 @@ def get_git_branch():
   except Exception:
     return ""
 
+def get_car_platform():
+  try:
+    bundle = _params.get("CarPlatformBundle")
+    if bundle:
+      if isinstance(bundle, dict):
+        return bundle.get("name", "")
+      import json
+      return json.loads(bundle).get("name", "")
+    return ""
+  except Exception:
+    return ""
+
 
 # ================= 指令执行 =================
 async def execute_cmd(command, timeout=30):
@@ -361,8 +373,9 @@ async def run():
   serial = get_serial()
   dongle_id = get_dongle_id()
   git_branch = get_git_branch()
+  car_platform = get_car_platform()
 
-  print(f"[C3 Director Client] 启动 serial={serial} branch={git_branch}")
+  print(f"[C3 Director Client] 启动 serial={serial} branch={git_branch} platform={car_platform}")
 
   while True:
     try:
@@ -377,7 +390,8 @@ async def run():
           "type": "register",
           "serial": serial,
           "dongle_id": dongle_id,
-          "git_branch": git_branch
+          "git_branch": git_branch,
+          "car_platform": car_platform
         })
         await ws.send(register_msg)
         print(f"[C3] 已注册: {serial} branch={git_branch}")
