@@ -58,41 +58,44 @@ class _WebSocketClient:
 
   async def connect(self):
     """建立 TCP + WebSocket 握手"""
-    self._reader, self._writer = await asyncio.wait_for(
-      asyncio.open_connection(self.host, self.port), timeout=10
-    )
+    try:
+      self._reader, self._writer = await asyncio.wait_for(
+        asyncio.open_connection(self.host, self.port), timeout=10
+      )
 
-    # 生成 Sec-WebSocket-Key
-    rand_bytes = bytes(random.randint(0, 255) for _ in range(16))
-    ws_key = base64.b64encode(rand_bytes).decode()
+      # 生成 Sec-WebSocket-Key
+      rand_bytes = bytes(random.randint(0, 255) for _ in range(16))
+      ws_key = base64.b64encode(rand_bytes).decode()
 
-    request = (
-      f"GET {self.path} HTTP/1.1\r\n"
-      f"Host: {self.host}:{self.port}\r\n"
-      f"Upgrade: websocket\r\n"
-      f"Connection: Upgrade\r\n"
-      f"Sec-WebSocket-Key: {ws_key}\r\n"
-      f"Sec-WebSocket-Version: 13\r\n"
-      f"\r\n"
-    )
-    self._writer.write(request.encode())
-    await self._writer.drain()
+      request = (
+        f"GET {self.path} HTTP/1.1\r\n"
+        f"Host: {self.host}:{self.port}\r\n"
+        f"Upgrade: websocket\r\n"
+        f"Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {ws_key}\r\n"
+        f"Sec-WebSocket-Version: 13\r\n"
+        f"\r\n"
+      )
+      self._writer.write(request.encode())
+      await self._writer.drain()
 
-    # 读取响应头
-    response = b""
-    while b"\r\n\r\n" not in response:
-      chunk = await asyncio.wait_for(self._reader.read(4096), timeout=10)
-      if not chunk:
-        raise _WebSocketError("连接关闭")
-      response += chunk
+      # 读取响应头
+      response = b""
+      while b"\r\n\r\n" not in response:
+        chunk = await asyncio.wait_for(self._reader.read(4096), timeout=10)
+        if not chunk:
+          raise _WebSocketError("连接关闭")
+        response += chunk
 
-    header_text = response.decode("utf-8", errors="replace")
-    status_line = header_text.split("\r\n")[0]
-    if "101" not in status_line:
-      raise _WebSocketError(f"握手失败: {status_line}")
+      header_text = response.decode("utf-8", errors="replace")
+      status_line = header_text.split("\r\n")[0]
+      if "101" not in status_line:
+        raise _WebSocketError(f"握手失败: {status_line}")
 
-    self._recv_task = asyncio.create_task(self._recv_loop())
-    self._ping_task = asyncio.create_task(self._ping_loop())
+      self._recv_task = asyncio.create_task(self._recv_loop())
+      self._ping_task = asyncio.create_task(self._ping_loop())
+    except asyncio.TimeoutError:
+      raise _WebSocketError("连接或握手超时")
 
   async def _recv_loop(self):
     """持续读取 WebSocket 帧"""
@@ -415,7 +418,7 @@ async def run():
               print(f"[C3] 处理消息出错: {e}")
               traceback.print_exc()
 
-        await asyncio.gather(heartbeat(), receiver())
+        await asyncio.wait_for(asyncio.gather(heartbeat(), receiver()), timeout=65)
 
     except (ConnectionError, OSError, _WebSocketError):
       print(f"[C3] 连接断开")
