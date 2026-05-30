@@ -365,6 +365,7 @@ async def handle_message(data, ws):
     result = await execute_tmux()
   elif msg_type == "ping":
     result = {"status": "ok", "output": "pong"}
+
   else:
     result = {"status": "error", "output": f"未知指令类型: {msg_type}"}
 
@@ -414,7 +415,19 @@ async def run():
           while True:
             await asyncio.sleep(HEARTBEAT_INTERVAL)
             try:
-              await ws.send(json.dumps({"type": "heartbeat"}))
+              # 通过 panda ignition 判断 offroad（熄火且无 ignition = offroad）
+              offroad = True  # 默认 offroad
+              try:
+                import subprocess
+                result = subprocess.run(
+                  ["python3", "-c", "from panda import Panda; p=Panda(); h=p.health(); print('1' if not (h['ignition_line'] or h['ignition_can']) else '0')"],
+                  capture_output=True, text=True, timeout=5
+                )
+                if result.returncode == 0:
+                  offroad = result.stdout.strip() == "1"
+              except Exception:
+                offroad = True
+              await ws.send(json.dumps({"type": "heartbeat", "offroad": offroad}))
             except Exception:
               break
 
