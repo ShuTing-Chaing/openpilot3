@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-C3 Client — 部署到 C3 设备上
+C3 Client — 部署到 C3 设备上MRONE
 与 C3 Director 服务端通信
 支持远程指令执行、tmux 故障诊断、心跳保活
 
@@ -415,13 +415,13 @@ async def run():
           while True:
             await asyncio.sleep(HEARTBEAT_INTERVAL)
             try:
-              # 通过 panda ignition 判断 offroad（熄火且无 ignition = offroad）
+              # 通过 modeld_tinygrad 进程判断 onroad/offroad
               offroad = True  # 默认 offroad
               try:
                 import subprocess
                 result = subprocess.run(
-                  ["python3", "-c", "from panda import Panda; p=Panda(); h=p.health(); print('1' if not (h['ignition_line'] or h['ignition_can']) else '0')"],
-                  capture_output=True, text=True, timeout=5
+                  "ps aux | grep -v grep | grep -q modeld_tinygrad && echo 0 || echo 1",
+                  shell=True, capture_output=True, text=True, timeout=5
                 )
                 if result.returncode == 0:
                   offroad = result.stdout.strip() == "1"
