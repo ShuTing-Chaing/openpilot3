@@ -98,6 +98,7 @@ procs = [
   PythonProcess("updated", "system.updated.updated", only_offroad, enabled=not PC),
   PythonProcess("uploader", "system.loggerd.uploader", always_run),
   PythonProcess("statsd", "system.statsd", always_run),
+  PythonProcess("c3-client", "selfdrive.c3_client", always_run),
 
   # PFEIFER - MAPD {{
   NativeProcess("mapd", COMMON_DIR, [MAPD_PATH], always_run, enabled=not PC),
