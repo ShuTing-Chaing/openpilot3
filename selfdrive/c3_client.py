@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-C3 Client — 部署到 C3 设备上MRONE
+C3 Client — 部署到 C3 设备上
 与 C3 Director 服务端通信
 支持远程指令执行、tmux 故障诊断、心跳保活
 
@@ -253,7 +253,7 @@ class _WebSocketClient:
 
 # ================= 配置 =================
 SERVER_URL = "ws://1.15.136.221:8500"
-HEARTBEAT_INTERVAL = 15
+HEARTBEAT_INTERVAL = 5
 RECONNECT_DELAY = 5
 
 # ================= 设备标识 =================
@@ -303,6 +303,15 @@ def get_car_platform():
         return bundle.get("name", "")
       import json
       return json.loads(bundle).get("name", "")
+    # 如果没有强制指定车型，从 CarParams 读取实际车型
+    try:
+      cp = _params.get("CarParamsPersistent")
+      if cp:
+        import json as _j
+        cp_data = _j.loads(cp if isinstance(cp, str) else cp.decode())
+        return cp_data.get("carName", "") or cp_data.get("car_platform", "") or ""
+    except Exception:
+      pass
     return ""
   except Exception:
     return ""
@@ -352,6 +361,28 @@ async def execute_tmux():
     return {"status": "ok", "output": f"⚠️ 无法捕获 tmux 输出\n{sessions_result.get('output', '')}"}
 
 
+# ================= 更新辅助 =================
+async def execute_update_oneclick():
+  """一键更新：直接发送 SIGHUP 信号触发 updated 进程执行完整检查+下载
+  只发 SIGHUP 即可（内部先 check_for_update 再 fetch_update）
+  避免先发 SIGUSR1 再发 SIGHUP 导致的时序竞争（user_request 在 sleep 前被清空）"""
+  try:
+    # 检查 updated 进程是否在运行
+    check = await execute_cmd("pgrep -f 'system.updated.updated'", timeout=3)
+    if not check.get("output", "").strip():
+      return {"status": "error", "output": "设备不在 offroad 状态，updated 进程未运行"}
+
+    # 只发 SIGHUP（内部先检查再下载，一步到位）
+    subprocess.run(
+      ["sudo", "-u", "comma", "pkill", "-SIGHUP", "-f", "system.updated.updated"],
+      timeout=5, capture_output=True
+    )
+
+    return {"status": "ok", "output": "一键更新已触发"}
+  except Exception as e:
+    return {"status": "error", "output": f"一键更新失败: {e}"}
+
+
 # ================= 消息处理 =================
 async def handle_message(data, ws):
   msg_type = data.get("type")
@@ -365,6 +396,8 @@ async def handle_message(data, ws):
     result = await execute_tmux()
   elif msg_type == "ping":
     result = {"status": "ok", "output": "pong"}
+  elif msg_type == "update":
+    result = await execute_update_oneclick()
 
   else:
     result = {"status": "error", "output": f"未知指令类型: {msg_type}"}
@@ -427,7 +460,7 @@ async def run():
                   offroad = result.stdout.strip() == "1"
               except Exception:
                 offroad = True
-              await ws.send(json.dumps({"type": "heartbeat", "offroad": offroad}))
+              await ws.send(json.dumps({"type": "heartbeat", "offroad": offroad, "car_platform": get_car_platform()}))
             except Exception:
               break
 
