@@ -92,7 +92,7 @@ class UIState(UIStateSP):
     self.is_body: bool | None = None
     self.CP: car.CarParams | None = None
     self.light_sensor: float = -1.0
-    
+
     self.dark_mode: bool = False
     self.onroad_screen_timeout: bool = False
     self.enable_accel_bar: bool = False
@@ -155,7 +155,7 @@ class UIState(UIStateSP):
         # Check ignition status across all pandas
         if self.panda_type != log.PandaState.PandaType.unknown:
           self.ignition = any(state.ignitionLine or state.ignitionCan for state in panda_states)
-    elif self.sm.frame - self.sm.recv_frame["pandaStates"] > 5 * rl.get_fps():
+    elif not self.sm.alive["pandaStates"]:
       self.panda_type = log.PandaState.PandaType.unknown
 
     # Handle wide road camera state updates
@@ -183,11 +183,11 @@ class UIState(UIStateSP):
         self.status = UIStatus.OVERRIDE
       else:
         self.status = UIStatus.ENGAGED if ss.enabled else UIStatus.DISENGAGED
-        
+
       # detect status change
       self.has_status_change = True if self.status != self._status_prev else False
       self._status_prev = self.status
-        
+
       # check for alert
       self.has_alert = True if ss.alertSize != 0 else False
 
