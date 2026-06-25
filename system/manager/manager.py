@@ -1,0 +1,900 @@
+#!/usr/bin/env python3
+import datetime
+import json
+import os
+import shutil
+from pathlib import Path
+import signal
+import sys
+import time
+import traceback
+
+from cereal import car, log
+import cereal.messaging as messaging
+import openpilot.system.sentry as sentry
+from openpilot.common.utils import atomic_write
+from openpilot.common.params import Params, ParamKeyFlag, ParamKeyType
+from openpilot.common.text_window import TextWindow
+from openpilot.system.hardware import HARDWARE
+from openpilot.system.manager.helpers import unblock_stdout, write_onroad_params, save_bootlog
+from openpilot.system.manager.process import ensure_running
+from openpilot.system.manager.process_config import managed_processes
+from openpilot.system.athena.registration import register, UNREGISTERED_DONGLE_ID
+from openpilot.common.swaglog import cloudlog, add_file_handler
+from openpilot.system.version import get_build_metadata, terms_version, training_version
+from openpilot.system.hardware.hw import Paths
+
+from openpilot.starpilot.common.starpilot_functions import starpilot_boot_functions, install_starpilot, uninstall_starpilot
+from openpilot.starpilot.common.starpilot_variables import (
+  LEGACY_STARPILOT_PARAM_RENAMES,
+  LEGACY_STARPILOT_STATS_KEY_RENAMES,
+  get_starpilot_toggles,
+)
+
+
+LEGACY_BOLT_FP_MIGRATION_FLAG = Path("/data") / "legacy_bolt_fp_migration_v1"
+STARPILOT_DEFAULTS_PARITY_MIGRATION_FLAG = Path("/data") / "starpilot_defaults_parity_v1"
+STARPILOT_HUMANLIKE_DISABLE_MIGRATION_FLAG = Path("/data") / "starpilot_humanlike_disable_v1"
+STARPILOT_CLUSTER_OFFSET_MIGRATION_FLAG = Path("/data") / "starpilot_cluster_offset_v1"
+STARPILOT_PRIORITIZE_SMOOTH_FOLLOWING_MIGRATION_FLAG = Path("/data") / "starpilot_prioritize_smooth_following_v1"
+STARPILOT_PARAM_RENAME_MIGRATION_FLAG = Path("/data") / "starpilot_param_rename_v1"
+STARPILOT_PARAM_CANONICALIZATION_MIGRATION_FLAG = Path("/data") / "starpilot_param_canonicalization_v1"
+STARPILOT_PC_ROOT_MIGRATION_FLAG = Path("/data") / "starpilot_pc_root_v1"
+STARPILOT_REMOVED_PARAM_KEYS = ("HumanFollowing",)
+LEGACY_CARMODEL_MIGRATIONS = {
+  "CHEVROLET_BOLT_CC_2019_2021": "CHEVROLET_BOLT_CC_2018_2021",
+}
+STARPILOT_STATS_DROP_KEYS = {"CurrentMonthsKilometers", "ResetStats"}
+STARPILOT_STATS_MAX_KEYS = {"LongestDistanceWithoutOverride", "MaxAcceleration"}
+
+
+def _to_text(value):
+  if value is None:
+    return None
+  if isinstance(value, bytes):
+    return value.decode("utf-8", errors="ignore")
+  return str(value)
+
+
+def _has_meaningful_param_value(value) -> bool:
+  if value is None:
+    return False
+  if isinstance(value, bool):
+    return True
+  if isinstance(value, (bytes, bytearray, str, dict, list, tuple, set)):
+    return len(value) > 0
+  return True
+
+
+def _is_numeric_stat_value(value) -> bool:
+  return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _merge_starpilot_stat_values(existing, incoming, key=None):
+  if existing is None:
+    return incoming
+  if incoming is None:
+    return existing
+
+  if isinstance(existing, dict) and isinstance(incoming, dict):
+    merged = dict(existing)
+    for child_key, child_value in incoming.items():
+      merged[child_key] = _merge_starpilot_stat_values(merged.get(child_key), child_value, child_key)
+    return merged
+
+  if key == "Month":
+    return incoming
+
+  if key in STARPILOT_STATS_MAX_KEYS and _is_numeric_stat_value(existing) and _is_numeric_stat_value(incoming):
+    return max(existing, incoming)
+
+  if _is_numeric_stat_value(existing) and _is_numeric_stat_value(incoming):
+    return existing + incoming
+
+  return incoming
+
+
+def _normalize_starpilot_stats_value(value):
+  if isinstance(value, dict):
+    normalized = {}
+    for child_key, child_value in value.items():
+      normalized[child_key] = _merge_starpilot_stat_values(
+        normalized.get(child_key),
+        _normalize_starpilot_stats_value(child_value),
+        child_key,
+      )
+    return normalized
+  return value
+
+
+def _normalize_starpilot_stats(stats):
+  if not isinstance(stats, dict):
+    return {}
+
+  normalized = {}
+  for key, value in stats.items():
+    mapped_key = LEGACY_STARPILOT_STATS_KEY_RENAMES.get(key, key)
+    if mapped_key in STARPILOT_STATS_DROP_KEYS:
+      continue
+
+    normalized[mapped_key] = _merge_starpilot_stat_values(
+      normalized.get(mapped_key),
+      _normalize_starpilot_stats_value(value),
+      mapped_key,
+    )
+
+  return normalized
+
+
+def _load_first_available_param_value(params: Params, params_cache: Params, source_key: str, typed_key: str):
+  for params_obj in (params, params_cache):
+    raw_value = _read_raw_param_bytes(params_obj, source_key)
+    if not raw_value:
+      continue
+
+    try:
+      return params.cpp2python(typed_key, raw_value)
+    except Exception:
+      cloudlog.exception(f"Failed to decode legacy param {source_key} as {typed_key}")
+
+  return None
+
+
+def _has_persisted_param_file(params: Params, key: str | bytes) -> bool:
+  try:
+    path = params.get_param_path(key)
+  except Exception:
+    return False
+
+  return bool(path) and os.path.isfile(path)
+
+
+def _remove_persisted_param_file(params: Params, key: str | bytes) -> bool:
+  try:
+    path = params.get_param_path(key)
+  except Exception:
+    return False
+
+  if not path or not os.path.isfile(path):
+    return False
+
+  try:
+    os.remove(path)
+    return True
+  except Exception:
+    cloudlog.exception(f"Failed to remove deprecated param file: {key}")
+    return False
+
+
+def cleanup_removed_starpilot_params(params: Params, params_cache: Params) -> None:
+  removed_keys = []
+  for key in STARPILOT_REMOVED_PARAM_KEYS:
+    removed = _remove_persisted_param_file(params, key)
+    removed = _remove_persisted_param_file(params_cache, key) or removed
+    if removed:
+      removed_keys.append(key)
+
+  if removed_keys:
+    cloudlog.warning(f"Removed deprecated StarPilot params: {removed_keys}")
+
+
+def migrate_starpilot_param_renames(params: Params, params_cache: Params) -> None:
+  if STARPILOT_PARAM_RENAME_MIGRATION_FLAG.exists():
+    return
+
+  migrated_keys: list[str] = []
+
+  for old_key, new_key in LEGACY_STARPILOT_PARAM_RENAMES.items():
+    if new_key == "StarPilotStats":
+      continue
+
+    migrated_value = _load_first_available_param_value(params, params_cache, old_key, new_key)
+    if not _has_meaningful_param_value(migrated_value):
+      continue
+
+    current_value = params.get(new_key)
+    if _has_meaningful_param_value(current_value) and not (new_key == "StarPilotDongleId" and current_value != migrated_value):
+      continue
+
+    try:
+      if current_value != migrated_value:
+        params.put(new_key, migrated_value)
+        params_cache.put(new_key, migrated_value)
+        migrated_keys.append(f"{old_key}->{new_key}")
+    except Exception:
+      cloudlog.exception(f"Failed to migrate legacy param {old_key} to {new_key}")
+
+  old_stats = _normalize_starpilot_stats(_load_first_available_param_value(params, params_cache, "FrogPilotStats", "StarPilotStats"))
+  new_stats = _normalize_starpilot_stats(_load_first_available_param_value(params, params_cache, "StarPilotStats", "StarPilotStats"))
+  merged_stats = new_stats if old_stats == new_stats else _merge_starpilot_stat_values(old_stats, new_stats, "StarPilotStats")
+
+  if _has_meaningful_param_value(merged_stats):
+    current_stats = params.get("StarPilotStats")
+    if current_stats != merged_stats:
+      try:
+        params.put("StarPilotStats", merged_stats)
+        params_cache.put("StarPilotStats", merged_stats)
+        migrated_keys.append("FrogPilotStats->StarPilotStats")
+      except Exception:
+        cloudlog.exception("Failed to migrate legacy StarPilot stats payload")
+
+  if migrated_keys:
+    cloudlog.warning(f"Applied legacy StarPilot param rename migration for {migrated_keys}")
+
+  try:
+    STARPILOT_PARAM_RENAME_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    STARPILOT_PARAM_RENAME_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {STARPILOT_PARAM_RENAME_MIGRATION_FLAG}")
+
+
+def _merge_tree_without_overwrite(source: Path, destination: Path) -> int:
+  moved_entries = 0
+
+  if not source.exists():
+    return moved_entries
+
+  if not destination.exists():
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source), str(destination))
+    return 1
+
+  for path in sorted(source.rglob("*"), key=lambda p: (len(p.parts), str(p))):
+    target = destination / path.relative_to(source)
+    if path.is_dir():
+      target.mkdir(parents=True, exist_ok=True)
+      continue
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+      continue
+
+    shutil.move(str(path), str(target))
+    moved_entries += 1
+
+  for directory in sorted((p for p in source.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+    try:
+      directory.rmdir()
+    except OSError:
+      pass
+
+  try:
+    source.rmdir()
+  except OSError:
+    pass
+
+  return moved_entries
+
+
+def migrate_starpilot_pc_root() -> None:
+  if HARDWARE.get_device_type() != "pc" or STARPILOT_PC_ROOT_MIGRATION_FLAG.exists():
+    return
+
+  old_root = Path(Paths.comma_home()) / "frogpilot"
+  new_root = Path(Paths.comma_home()) / "starpilot"
+
+  moved_entries = 0
+  migration_succeeded = True
+  if old_root.exists():
+    try:
+      moved_entries = _merge_tree_without_overwrite(old_root, new_root)
+    except Exception:
+      migration_succeeded = False
+      cloudlog.exception(f"Failed to migrate legacy PC StarPilot root from {old_root} to {new_root}")
+
+  if moved_entries:
+    cloudlog.warning(f"Migrated legacy PC StarPilot root from {old_root} to {new_root}")
+
+  if not migration_succeeded:
+    return
+
+  try:
+    STARPILOT_PC_ROOT_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    STARPILOT_PC_ROOT_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {STARPILOT_PC_ROOT_MIGRATION_FLAG}")
+
+
+def migrate_legacy_bolt_fingerprint(params: Params) -> None:
+  old_fp, new_fp = next(iter(LEGACY_CARMODEL_MIGRATIONS.items()))
+  carparams_keys = ("CarParams", "CarParamsCache", "CarParamsPersistent", "CarParamsPrevRoute")
+  keys_to_clear = (
+    "CarParams",
+    "CarParamsCache",
+    "CarParamsPersistent",
+    "CarParamsPrevRoute",
+    "StarPilotCarParams",
+    "StarPilotCarParamsPersistent",
+  )
+
+  car_model = _to_text(params.get("CarModel"))
+  legacy_detected = car_model == old_fp
+  if not legacy_detected:
+    old_fp_bytes = old_fp.encode()
+    for key in carparams_keys:
+      raw = params.get(key)
+      if raw is None:
+        continue
+
+      raw_bytes = raw if isinstance(raw, bytes) else str(raw).encode()
+      # Fast path for payloads that still embed the legacy fingerprint string.
+      if old_fp_bytes in raw_bytes:
+        legacy_detected = True
+        break
+
+      # Fallback decode for payloads that don't expose the raw string directly.
+      try:
+        with car.CarParams.from_bytes(raw_bytes) as cp:
+          if cp.carFingerprint == old_fp:
+            legacy_detected = True
+            break
+      except Exception:
+        continue
+
+  if not legacy_detected:
+    return
+
+  cleared_keys: list[str] = []
+  for key in keys_to_clear:
+    if params.get(key) is None:
+      continue
+    params.remove(key)
+    cleared_keys.append(key)
+
+  if car_model == old_fp:
+    params.put("CarModel", new_fp)
+  car_model_name = _to_text(params.get("CarModelName")) or ""
+  if "2019-21" in car_model_name:
+    params.put("CarModelName", car_model_name.replace("2019-21", "2018-21"))
+
+  cloudlog.warning(
+    f"Detected legacy Bolt fingerprint {old_fp}; cleared={cleared_keys}, remapped CarModel to {new_fp}"
+  )
+
+  try:
+    LEGACY_BOLT_FP_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    LEGACY_BOLT_FP_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {LEGACY_BOLT_FP_MIGRATION_FLAG}")
+
+
+def migrate_starpilot_default_parity(params: Params, params_cache: Params) -> None:
+  if STARPILOT_DEFAULTS_PARITY_MIGRATION_FLAG.exists():
+    return
+
+  seeded_keys: list[str] = []
+  desired_bool_values = {
+    "AdvancedLateralTune": True,
+    "ForceAutoTuneOff": True,
+    "HumanAcceleration": False,
+    "NNFF": False,
+    "NNFFLite": False,
+  }
+
+  for key, value in desired_bool_values.items():
+    if _has_persisted_param_file(params, key) or _has_persisted_param_file(params_cache, key):
+      continue
+    params.put_bool(key, value)
+    params_cache.put_bool(key, value)
+    seeded_keys.append(key)
+
+  if not _has_persisted_param_file(params, "CEModelStopTime") and not _has_persisted_param_file(params_cache, "CEModelStopTime"):
+    params.put_float("CEModelStopTime", 7.0)
+    params_cache.put_float("CEModelStopTime", 7.0)
+    seeded_keys.append("CEModelStopTime")
+
+  # Rebase default regression fix:
+  # EVTuning must default to enabled on EV/direct-drive platforms to preserve
+  # StarPilot acceleration profile behavior, but existing user overrides win.
+  carparams_blob = params.get("CarParamsPersistent") or params.get("CarParams")
+  if carparams_blob is not None:
+    try:
+      with car.CarParams.from_bytes(carparams_blob) as cp:
+        is_ev_platform = cp.transmissionType == car.CarParams.TransmissionType.direct
+      if is_ev_platform and not params.get_bool("TruckTuning") and not _has_persisted_param_file(params, "EVTuning") and not _has_persisted_param_file(params_cache, "EVTuning"):
+        params.put_bool("EVTuning", True)
+        params_cache.put_bool("EVTuning", True)
+        seeded_keys.append("EVTuning")
+    except Exception:
+      cloudlog.exception("Failed EVTuning EV default parity migration")
+
+  if seeded_keys:
+    cloudlog.warning(f"Applied one-time StarPilot default parity migration for {seeded_keys}")
+
+  try:
+    STARPILOT_DEFAULTS_PARITY_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    STARPILOT_DEFAULTS_PARITY_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {STARPILOT_DEFAULTS_PARITY_MIGRATION_FLAG}")
+
+
+def migrate_disable_humanlike_defaults(params: Params, params_cache: Params) -> None:
+  if STARPILOT_HUMANLIKE_DISABLE_MIGRATION_FLAG.exists():
+    return
+
+  disabled_keys: list[str] = []
+
+  for key in ("HumanAcceleration", "HumanLaneChanges"):
+    if not (params.get_bool(key) or params_cache.get_bool(key)):
+      continue
+
+    params.put_bool(key, False)
+    params_cache.put_bool(key, False)
+    disabled_keys.append(key)
+
+  if disabled_keys:
+    cloudlog.warning(f"Applied one-time human-like toggle disable migration for {disabled_keys}")
+
+  try:
+    STARPILOT_HUMANLIKE_DISABLE_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    STARPILOT_HUMANLIKE_DISABLE_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {STARPILOT_HUMANLIKE_DISABLE_MIGRATION_FLAG}")
+
+
+def migrate_cluster_offset_default(params: Params, params_cache: Params) -> None:
+  if STARPILOT_CLUSTER_OFFSET_MIGRATION_FLAG.exists():
+    return
+
+  legacy_default_detected = False
+  for params_obj in (params, params_cache):
+    raw_value = _read_raw_param_bytes(params_obj, "ClusterOffset")
+    if not raw_value:
+      continue
+
+    try:
+      parsed_value = float(raw_value.decode("utf-8", errors="strict").strip())
+    except Exception:
+      continue
+
+    if abs(parsed_value - 1.015) < 1e-6:
+      legacy_default_detected = True
+      break
+
+  if legacy_default_detected:
+    params.put_float("ClusterOffset", 1.0)
+    params_cache.put_float("ClusterOffset", 1.0)
+    cloudlog.warning("Applied one-time ClusterOffset migration from 1.015 to 1.0")
+
+  try:
+    STARPILOT_CLUSTER_OFFSET_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    STARPILOT_CLUSTER_OFFSET_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {STARPILOT_CLUSTER_OFFSET_MIGRATION_FLAG}")
+
+
+def migrate_prioritize_smooth_following_default(params: Params, params_cache: Params) -> None:
+  if STARPILOT_PRIORITIZE_SMOOTH_FOLLOWING_MIGRATION_FLAG.exists():
+    return
+
+  if not (_has_persisted_param_file(params, "PrioritizeSmoothFollowing") or _has_persisted_param_file(params_cache, "PrioritizeSmoothFollowing")):
+    migrated_from_legacy = False
+    for params_obj in (params, params_cache):
+      if not _has_persisted_param_file(params_obj, "CoastUpToLeads"):
+        continue
+
+      prioritize_smooth_following = not params_obj.get_bool("CoastUpToLeads")
+      params.put_bool("PrioritizeSmoothFollowing", prioritize_smooth_following)
+      params_cache.put_bool("PrioritizeSmoothFollowing", prioritize_smooth_following)
+      cloudlog.warning(f"Migrated CoastUpToLeads to PrioritizeSmoothFollowing={int(prioritize_smooth_following)}")
+      migrated_from_legacy = True
+      break
+
+    if not migrated_from_legacy:
+      params.put_bool("PrioritizeSmoothFollowing", False)
+      params_cache.put_bool("PrioritizeSmoothFollowing", False)
+      cloudlog.warning("Seeded PrioritizeSmoothFollowing to default disabled")
+
+  try:
+    STARPILOT_PRIORITIZE_SMOOTH_FOLLOWING_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    STARPILOT_PRIORITIZE_SMOOTH_FOLLOWING_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {STARPILOT_PRIORITIZE_SMOOTH_FOLLOWING_MIGRATION_FLAG}")
+
+
+def _read_raw_param_bytes(params: Params, key: str | bytes):
+  try:
+    path = params.get_param_path(key)
+  except Exception:
+    return None
+
+  if not path or not os.path.isfile(path):
+    return None
+
+  try:
+    with open(path, "rb") as f:
+      return f.read()
+  except Exception:
+    return None
+
+
+def _parse_legacy_time(raw_text: str):
+  text = raw_text.strip()
+  if not text:
+    return None
+
+  try:
+    return datetime.datetime.fromisoformat(text)
+  except ValueError:
+    pass
+
+  for fmt in ("%B %d, %Y - %I:%M%p", "%B %d, %Y - %I:%M %p"):
+    try:
+      return datetime.datetime.strptime(text, fmt)
+    except ValueError:
+      continue
+
+  return None
+
+
+def migrate_param_type_canonicalization(params: Params) -> None:
+  if STARPILOT_PARAM_CANONICALIZATION_MIGRATION_FLAG.exists():
+    return
+
+  normalized_keys: list[str] = []
+
+  for raw_key in params.all_keys():
+    key = raw_key.decode() if isinstance(raw_key, bytes) else str(raw_key)
+    raw_value = _read_raw_param_bytes(params, raw_key)
+    if not raw_value:
+      continue
+
+    try:
+      text_value = raw_value.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError:
+      continue
+
+    if not text_value:
+      continue
+
+    try:
+      expected_type = params.get_type(raw_key)
+    except Exception:
+      continue
+
+    try:
+      if expected_type == ParamKeyType.INT:
+        parsed = float(text_value)
+        # Canonicalize decimal/exponent forms into integer storage.
+        canonical = str(int(parsed))
+        if canonical != text_value:
+          params.put_int(raw_key, int(parsed))
+          normalized_keys.append(key)
+
+      elif expected_type == ParamKeyType.FLOAT:
+        parsed = float(text_value)
+        canonical = str(parsed)
+        if canonical != text_value:
+          params.put_float(raw_key, parsed)
+          normalized_keys.append(key)
+
+      elif expected_type == ParamKeyType.BOOL:
+        lowered = text_value.lower()
+        if lowered in ("1", "true", "yes", "on"):
+          if text_value != "1":
+            params.put_bool(raw_key, True)
+            normalized_keys.append(key)
+        elif lowered in ("0", "false", "no", "off"):
+          if text_value != "0":
+            params.put_bool(raw_key, False)
+            normalized_keys.append(key)
+
+      elif expected_type == ParamKeyType.TIME:
+        dt = _parse_legacy_time(text_value)
+        if dt is not None:
+          if dt.tzinfo is not None:
+            dt = dt.astimezone(datetime.UTC).replace(tzinfo=None)
+          if text_value != dt.isoformat():
+            params.put(raw_key, dt)
+            normalized_keys.append(key)
+
+      elif expected_type == ParamKeyType.JSON:
+        parsed = json.loads(text_value)
+        canonical = json.dumps(parsed, separators=(",", ":"))
+        if canonical != text_value:
+          params.put(raw_key, parsed)
+          normalized_keys.append(key)
+    except Exception:
+      continue
+
+  if normalized_keys:
+    cloudlog.warning(f"Canonicalized legacy param values for {len(normalized_keys)} keys")
+
+  try:
+    STARPILOT_PARAM_CANONICALIZATION_MIGRATION_FLAG.parent.mkdir(parents=True, exist_ok=True)
+    STARPILOT_PARAM_CANONICALIZATION_MIGRATION_FLAG.write_text(f"{datetime.datetime.now(datetime.UTC).isoformat()}\n")
+  except Exception:
+    cloudlog.exception(f"Failed to write migration flag: {STARPILOT_PARAM_CANONICALIZATION_MIGRATION_FLAG}")
+
+
+def migrate_legacy_experimental_longitudinal(params: Params, params_cache: Params) -> None:
+  legacy_value = params.get("ExperimentalLongitudinalEnabled")
+  if legacy_value is None:
+    return
+
+  if params.get("AlphaLongitudinalEnabled") is None:
+    alpha_long_enabled = params.get_bool("ExperimentalLongitudinalEnabled")
+    params.put_bool("AlphaLongitudinalEnabled", alpha_long_enabled)
+    params_cache.put_bool("AlphaLongitudinalEnabled", alpha_long_enabled)
+    cloudlog.warning("Migrated legacy ExperimentalLongitudinalEnabled to AlphaLongitudinalEnabled")
+
+  params.remove("ExperimentalLongitudinalEnabled")
+  params_cache.remove("ExperimentalLongitudinalEnabled")
+
+
+def manager_init() -> None:
+  save_bootlog()
+
+  build_metadata = get_build_metadata()
+
+  params = Params()
+  cache_params_path = "/cache/params"
+  if HARDWARE.get_device_type() == "pc":
+    cache_params_path = os.path.join(Paths.comma_home(), "cache", "params")
+  params_cache = Params(cache_params_path, return_defaults=True)
+
+  # Legacy FrogPilot params are unknown to the renamed schema and would be
+  # deleted by clear_all() if we do not migrate them first.
+  migrate_starpilot_param_renames(params, params_cache)
+
+  params.clear_all(ParamKeyFlag.CLEAR_ON_MANAGER_START)
+  params.clear_all(ParamKeyFlag.CLEAR_ON_ONROAD_TRANSITION)
+  params.clear_all(ParamKeyFlag.CLEAR_ON_OFFROAD_TRANSITION)
+  params.clear_all(ParamKeyFlag.CLEAR_ON_IGNITION_ON)
+  if build_metadata.release_channel:
+    params.clear_all(ParamKeyFlag.DEVELOPMENT_ONLY)
+
+  migrate_starpilot_pc_root()
+
+  if params.get_bool("RecordFrontLock"):
+    params.put_bool("RecordFront", True)
+
+  # StarPilot variables
+
+  # Preserve StarPilot's legacy longitudinal toggle when switching branches.
+  migrate_legacy_experimental_longitudinal(params, params_cache)
+
+  # Canonicalize legacy string encodings (e.g. INT params stored as "26.000000")
+  # before bulk reads below to avoid repeated cast warnings and UI-side churn.
+  migrate_param_type_canonicalization(params)
+  cleanup_removed_starpilot_params(params, params_cache)
+  migrate_starpilot_default_parity(params, params_cache)
+  migrate_disable_humanlike_defaults(params, params_cache)
+  migrate_cluster_offset_default(params, params_cache)
+  migrate_prioritize_smooth_following_default(params, params_cache)
+
+  # set unset params to their default value
+  for k in params.all_keys():
+    current_value = params.get(k)
+    if current_value is None:
+      cached_value = params_cache.get(k)
+      if cached_value is not None:
+        params.put(k, cached_value)
+    else:
+      params_cache.put(k, current_value)
+
+  # Create folders needed for msgq
+  try:
+    os.mkdir(Paths.shm_path())
+  except FileExistsError:
+    pass
+  except PermissionError:
+    print(f"WARNING: failed to make {Paths.shm_path()}")
+
+  # set params
+  serial = HARDWARE.get_serial()
+  params.put("Version", build_metadata.openpilot.version)
+  params.put("TermsVersion", terms_version)
+  params.put("TrainingVersion", training_version)
+  params.put("GitCommit", build_metadata.openpilot.git_commit)
+  params.put("GitCommitDate", build_metadata.openpilot.git_commit_date)
+  params.put("GitBranch", build_metadata.channel)
+  params.put("GitRemote", build_metadata.openpilot.git_origin)
+  params.put_bool("IsTestedBranch", build_metadata.tested_channel)
+  params.put_bool("IsReleaseBranch", build_metadata.release_channel)
+  params.put("HardwareSerial", serial)
+
+  # Branch migration: rename legacy Bolt fingerprint persisted in CarParams.
+  migrate_legacy_bolt_fingerprint(params)
+
+  # set dongle id
+  reg_res = register(show_spinner=True)
+  if reg_res:
+    dongle_id = reg_res
+  else:
+    raise Exception(f"Registration failed for device {serial}")
+  os.environ['DONGLE_ID'] = dongle_id  # Needed for swaglog
+  os.environ['GIT_ORIGIN'] = build_metadata.openpilot.git_normalized_origin # Needed for swaglog
+  os.environ['GIT_BRANCH'] = build_metadata.channel # Needed for swaglog
+  os.environ['GIT_COMMIT'] = build_metadata.openpilot.git_commit # Needed for swaglog
+
+  if not build_metadata.openpilot.is_dirty:
+    os.environ['CLEAN'] = '1'
+
+  # init logging
+  sentry.init(sentry.SentryProject.SELFDRIVE)
+  cloudlog.bind_global(dongle_id=dongle_id,
+                       version=build_metadata.openpilot.version,
+                       origin=build_metadata.openpilot.git_normalized_origin,
+                       branch=build_metadata.channel,
+                       commit=build_metadata.openpilot.git_commit,
+                       dirty=build_metadata.openpilot.is_dirty,
+                       device=HARDWARE.get_device_type())
+
+  # preimport all processes
+  for p in managed_processes.values():
+    p.prepare()
+
+  # StarPilot variables
+  install_starpilot(build_metadata, params)
+  starpilot_boot_functions(build_metadata, params)
+
+
+def manager_cleanup() -> None:
+  # send signals to kill all procs
+  for p in managed_processes.values():
+    p.stop(block=False)
+
+  # ensure all are killed
+  for p in managed_processes.values():
+    p.stop(block=True)
+
+  cloudlog.info("everything is dead")
+
+
+def manager_thread() -> None:
+  cloudlog.bind(daemon="manager")
+  cloudlog.info("manager start")
+  cloudlog.info({"environ": os.environ})
+
+  params = Params()
+
+  ignore: list[str] = []
+  if params.get("DongleId") in (None, UNREGISTERED_DONGLE_ID):
+    ignore += ["manage_athenad", "uploader"]
+  if os.getenv("NOBOARD") is not None:
+    ignore.append("pandad")
+  ignore += [x for x in os.getenv("BLOCK", "").split(",") if len(x) > 0]
+
+  sm = messaging.SubMaster(['deviceState', 'carParams', 'pandaStates'], poll='deviceState')
+  pm = messaging.PubMaster(['managerState'])
+
+  write_onroad_params(False, params)
+  ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore, starpilot_toggles=get_starpilot_toggles())
+
+  started_prev = False
+  ignition_prev = False
+  warned_onroad_reboot = False
+
+  # StarPilot variables
+  sm = sm.extend(['starpilotPlan'])
+
+  params_memory = Params(memory=True)
+
+  starpilot_toggles = get_starpilot_toggles()
+
+  while True:
+    sm.update(1000)
+
+    started = sm['deviceState'].started
+
+    if started and not started_prev and not starpilot_toggles.force_onroad:
+      params.clear_all(ParamKeyFlag.CLEAR_ON_ONROAD_TRANSITION)
+
+      # StarPilot variables
+      params_memory.clear_all(ParamKeyFlag.CLEAR_ON_ONROAD_TRANSITION)
+    elif not started and started_prev:
+      params.clear_all(ParamKeyFlag.CLEAR_ON_OFFROAD_TRANSITION)
+
+      # StarPilot variables
+      params_memory.clear_all(ParamKeyFlag.CLEAR_ON_OFFROAD_TRANSITION)
+      if params.get_bool("ClearNavOnOffroad"):
+        params.remove("NavDestination")
+
+    ignition = any(ps.ignitionLine or ps.ignitionCan for ps in sm['pandaStates'] if ps.pandaType != log.PandaState.PandaType.unknown)
+    if ignition and not ignition_prev:
+      params.clear_all(ParamKeyFlag.CLEAR_ON_IGNITION_ON)
+
+    # update onroad params, which drives pandad's safety setter thread
+    if started != started_prev:
+      write_onroad_params(started, params)
+
+    started_prev = started
+    ignition_prev = ignition
+
+    ensure_running(managed_processes.values(), started, params=params, CP=sm['carParams'], not_run=ignore, starpilot_toggles=starpilot_toggles)
+
+    running = ' '.join("{}{}\u001b[0m".format("\u001b[32m" if p.proc.is_alive() else "\u001b[31m", p.name)
+                       for p in managed_processes.values() if p.proc)
+    print(running)
+    cloudlog.debug(running)
+
+    # send managerState
+    msg = messaging.new_message('managerState', valid=True)
+    msg.managerState.processes = [p.get_process_state_msg() for p in managed_processes.values()]
+    pm.send('managerState', msg)
+
+    # kick AGNOS power monitoring watchdog
+    try:
+      if sm.all_checks(['deviceState']):
+        with atomic_write("/var/tmp/power_watchdog", "w", overwrite=True) as f:
+          f.write(str(time.monotonic()))
+    except Exception:
+      pass
+
+    # Exit main loop when uninstall/shutdown/reboot is needed
+    shutdown = False
+    for param in ("DoUninstall", "DoShutdown", "DoReboot"):
+      if param == "DoReboot" and started:
+        if params.get_bool(param):
+          if not warned_onroad_reboot:
+            cloudlog.warning("ignoring DoReboot while onroad; deferring until offroad")
+            warned_onroad_reboot = True
+        continue
+      if params.get_bool(param):
+        shutdown = True
+        warned_onroad_reboot = False
+        params.put("LastManagerExitReason", f"{param} {datetime.datetime.now()}")
+        cloudlog.warning(f"Shutting down manager - {param} set")
+
+    if shutdown:
+      break
+
+    # StarPilot variables
+    starpilot_toggles = get_starpilot_toggles(sm)
+
+
+def main() -> None:
+  manager_init()
+  if os.getenv("PREPAREONLY") is not None:
+    return
+
+  # SystemExit on sigterm
+  signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(1))
+
+  try:
+    manager_thread()
+  except Exception:
+    traceback.print_exc()
+    sentry.capture_exception()
+  finally:
+    manager_cleanup()
+
+  params = Params()
+  if params.get_bool("DoUninstall"):
+    cloudlog.warning("uninstalling")
+    uninstall_starpilot()
+  elif params.get_bool("DoReboot"):
+    cloudlog.warning("reboot")
+    HARDWARE.reboot()
+  elif params.get_bool("DoShutdown"):
+    cloudlog.warning("shutdown")
+    HARDWARE.shutdown()
+
+
+if __name__ == "__main__":
+  unblock_stdout()
+
+  try:
+    main()
+  except KeyboardInterrupt:
+    print("got CTRL-C, exiting")
+  except Exception:
+    add_file_handler(cloudlog)
+    cloudlog.exception("Manager failed to start")
+
+    try:
+      managed_processes['ui'].stop()
+    except Exception:
+      pass
+
+    # Show last 3 lines of traceback
+    error = traceback.format_exc(-3)
+    error = "Manager failed to start\n\n" + error
+    with TextWindow(error) as t:
+      t.wait_for_exit()
+
+    raise
+
+  # manual exit because we are forked
+  sys.exit(0)
