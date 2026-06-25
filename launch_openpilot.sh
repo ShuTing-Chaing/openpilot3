@@ -6,9 +6,12 @@ export API_HOST='http://res.mr-one.cn'
 
 
 # Skip onboarding on startup
+# Skip onboarding on startup
 echo -n "2" > /data/params/d/HasAcceptedTerms
 echo -n "1.0" > /data/params/d/HasAcceptedTermsSP
 echo -n "0.2.0" > /data/params/d/CompletedTrainingVersion
-# 自动部署/修复 frpc（幂等，可重复执行
+echo -n "1.0" > /data/params/d/CompletedSunnylinkConsentVersion  # Sunnylink 同意
+echo -n "1" > /data/params/d/IsMetric
+
 
 exec ./launch_chffrplus.sh
