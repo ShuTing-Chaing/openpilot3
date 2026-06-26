@@ -105,14 +105,48 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
             apply_curvature = apply_curvature + (CS.out.steeringCurvature - (CC.currentCurvature - CC.rollCompensation))
           else: # car curv - VM with roll
             apply_curvature = actuators.curvature + (CS.out.steeringCurvature - CC.currentCurvature)
-          apply_curvature = apply_std_curvature_limits(apply_curvature, self.apply_curvature_last, CS.out.vEgoRaw, CS.out.steeringCurvature,
-                                                       CS.out.steeringPressed, self.CCP.STEER_STEP, CC.latActive, self.CCP.CURVATURE_LIMITS)
+          apply_curvature = apply_std_curvature_limits(
+              apply_curvature,
+              self.apply_curvature_last,
+              CS.out.vEgoRaw,
+              CS.out.steeringCurvature,
+              CS.out.steeringPressed,
+              self.CCP.STEER_STEP,
+              CC.latActive,
+              self.CCP.CURVATURE_LIMITS
+          )
+
+          # ------------------------------------------------------------------
+          # Low speed curvature filter
+          # Reduce steering oscillation below 40 km/h
+          # ------------------------------------------------------------------
+          if CS.out.vEgo < 11.1:  # 40 km/h
+              alpha = np.interp(
+                  CS.out.vEgo,
+                  [0.0, 5.0, 11.1],
+                  [0.30, 0.55, 1.00]
+              )
+
+              apply_curvature = (
+                      alpha * apply_curvature +
+                      (1.0 - alpha) * self.apply_curvature_last
+              )
 
           min_power = max(self.steering_power_last - self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MIN)
           max_power = min(self.steering_power_last + self.CCP.STEERING_POWER_STEP, self.CCP.STEERING_POWER_MAX)
-          target_power_driver = int(np.interp(CS.out.steeringTorque, [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_MAX],
-                                                                     [self.CCP.STEERING_POWER_MAX, self.CCP.STEERING_POWER_MIN]))
-          target_power = int(np.interp(CS.out.vEgo, [0., 0.5], [self.CCP.STEERING_POWER_MIN, target_power_driver]))
+
+          target_power_driver = int(np.interp(
+              CS.out.steeringTorque,
+              [self.CCP.STEER_DRIVER_ALLOWANCE, self.CCP.STEER_DRIVER_MAX],
+              [self.CCP.STEERING_POWER_MAX, self.CCP.STEERING_POWER_MIN]
+          ))
+
+          target_power = int(np.interp(
+              CS.out.vEgo,
+              [0., 0.5],
+              [self.CCP.STEERING_POWER_MIN, target_power_driver]
+          ))
+
           steering_power = min(max(target_power, min_power), max_power)
           
         else:
