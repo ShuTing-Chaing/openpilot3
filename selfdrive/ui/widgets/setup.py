@@ -1,15 +1,18 @@
 import pyray as rl
+from openpilot.common.params import Params
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.button import Button, ButtonStyle
 from openpilot.system.ui.widgets.label import Label
+import os
 
 
 class SetupWidget(Widget):
   def __init__(self):
     super().__init__()
+    self.params = Params()
     self._open_settings_callback = None
     self._open_settings_btn = Button(lambda: tr("Open"), lambda: self._open_settings_callback() if self._open_settings_callback else None,
                                      button_style=ButtonStyle.PRIMARY)
@@ -18,6 +21,10 @@ class SetupWidget(Widget):
   def set_open_settings_callback(self, callback):
     self._open_settings_callback = callback
 
+  def _get_version(self) -> str:
+    description = self.params.get("UpdaterCurrentDescription")
+    return f"V{description}" if description else "V0.11.1"
+
   def _render(self, rect: rl.Rectangle):
     if not ui_state.prime_state.is_paired():
       self._render_registration(rect)
@@ -25,25 +32,55 @@ class SetupWidget(Widget):
       self._render_firehose_prompt(rect)
 
   def _render_registration(self, rect: rl.Rectangle):
-    """Render safety notice text."""
+    """Render MR.ONE brand card with safety notice."""
 
-    rl.draw_rectangle_rounded(rl.Rectangle(rect.x, rect.y, rect.width, rect.height), 0.03, 20, rl.Color(51, 51, 51, 255))
+    BG_COLOR = rl.Color(30, 35, 50, 255)     # dark navy
+    ACCENT = rl.Color(70, 91, 234, 255)       # brand blue
+    SEPARATOR = rl.Color(60, 65, 85, 255)     # subtle line
 
-    font = gui_app.font(FontWeight.BOLD)
-    x = rect.x + rect.width / 2
-    y_mid = rect.y + rect.height / 2
+    # Full card background
+    rl.draw_rectangle_rounded(rl.Rectangle(rect.x, rect.y, rect.width, rect.height), 0.035, 20, BG_COLOR)
 
-    # Line 1: white 100px
-    text1 = tr("欢迎选用 MR.ONE")
-    font_size1 = 100
-    measure1 = rl.measure_text_ex(font, text1, font_size1, 0)
-    rl.draw_text_ex(font, text1, rl.Vector2(x - measure1.x / 2, y_mid - font_size1 - 20), font_size1, 0, rl.WHITE)
+    x_center = rect.x + rect.width / 2
+    y_center = rect.y + rect.height / 2
 
-    # Line 2: red 90px
-    text2 = tr("这不是自动驾驶，请注意行车安全")
-    font_size2 = 90
-    measure2 = rl.measure_text_ex(font, text2, font_size2, 0)
-    rl.draw_text_ex(font, text2, rl.Vector2(x - measure2.x / 2, y_mid + 20), font_size2, 0, rl.Color(201, 34, 49, 255))
+    # === Top section: brand logo area ===
+    # Star decorations
+    star_font = gui_app.font(FontWeight.NORMAL)
+    star_size = 32
+    left_star = rl.measure_text_ex(star_font, "✦", star_size, 0)
+    rl.draw_text_ex(star_font, "✦", rl.Vector2(x_center - 105 - left_star.x, y_center - 135), star_size, 0, ACCENT)
+    rl.draw_text_ex(star_font, "✦", rl.Vector2(x_center + 105, y_center - 135), star_size, 0, ACCENT)
+
+    # MR.ONE title
+    bold_font = gui_app.font(FontWeight.BOLD)
+    title = "MR.ONE"
+    title_size = 85
+    title_measure = rl.measure_text_ex(bold_font, title, title_size, 0)
+    rl.draw_text_ex(bold_font, title, rl.Vector2(x_center - title_measure.x / 2, y_center - 130), title_size, 0, ACCENT)
+
+    # Subtitle
+    subtitle = tr("更智能的驾驶体验")
+    sub_size = 42
+    sub_measure = rl.measure_text_ex(star_font, subtitle, sub_size, 0)
+    rl.draw_text_ex(star_font, subtitle, rl.Vector2(x_center - sub_measure.x / 2, y_center - 45), sub_size, 0, rl.Color(180, 185, 200, 255))
+
+    # === Separator ===
+    sep_y = y_center + 5
+    sep_w = 280
+    rl.draw_rectangle(rl.Rectangle(int(x_center - sep_w / 2), int(sep_y), sep_w, 2), SEPARATOR)
+
+    # === Bottom section: safety notice ===
+    warn = tr("这不是自动驾驶，请注意行车安全")
+    warn_size = 68
+    warn_measure = rl.measure_text_ex(bold_font, warn, warn_size, 0)
+    rl.draw_text_ex(bold_font, warn, rl.Vector2(x_center - warn_measure.x / 2, y_center + 35), warn_size, 0, rl.Color(201, 34, 49, 255))
+
+    # === Footer: version & url ===
+    footer_text = f"{self._get_version()}  |  www.mr-one.cn"
+    footer_size = 30
+    footer_measure = rl.measure_text_ex(star_font, footer_text, footer_size, 0)
+    rl.draw_text_ex(star_font, footer_text, rl.Vector2(x_center - footer_measure.x / 2, rect.y + rect.height - 50), footer_size, 0, rl.Color(110, 115, 135, 255))
 
   def _render_firehose_prompt(self, rect: rl.Rectangle):
     """Render firehose prompt widget."""
