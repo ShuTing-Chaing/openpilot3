@@ -823,3 +823,220 @@ msgstr "✓ 已订阅"
 msgid "🔥 Firehose Mode 🔥"
 msgstr "🔥 Firehose 模式 🔥"
 
+# === events.py alerts ===
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Abnormal tire stiffness"
+msgstr "轮胎刚度异常"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "AEB: Risk of Collision"
+msgstr "AEB：碰撞风险"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Angle offset too high (Offset: {:.1f}°)"
+msgstr "角度偏移过高（偏移：{:.1f}°）"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Be ready to take over at any time"
+msgstr "请随时准备接管"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "BRAKE!"
+msgstr "刹车！"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Calibrating"
+msgstr "校准中"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Calibration Invalid"
+msgstr "校准无效"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Camera Malfunction"
+msgstr "摄像头故障"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Car Unrecognized"
+msgstr "车辆未识别"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Check tires, pressure, or alignment (Factor: {:.1f})"
+msgstr "检查轮胎、气压或定位（系数：{:.1f}）"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Communication Issue Between Processes"
+msgstr "进程间通信异常"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Dashcam mode"
+msgstr "行车记录仪模式"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Dashcam Mode"
+msgstr "行车记录仪模式"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Dashcam mode for unsupported car"
+msgstr "不支持的车辆，已切换为行车记录仪模式"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Disable your car's stock LKAS to engage"
+msgstr "请关闭车辆原厂 LKAS 以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Drive above {} to engage"
+msgstr "车速高于 {} 即可启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Driving Model Lagging"
+msgstr "驾驶模型延迟"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Emergency Braking: Risk of Collision"
+msgstr "紧急制动：碰撞风险"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Enable your car's LKAS to engage"
+msgstr "请开启车辆原厂 LKAS 以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Enable Adaptive Cruise to Engage"
+msgstr "请开启自适应巡航以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Enable Main Switch to Engage"
+msgstr "请开启主开关以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Ensure road ahead is clear"
+msgstr "请确保前方道路畅通"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "High CPU Usage"
+msgstr "CPU 占用过高"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Invalid LKAS setting"
+msgstr "LKAS 设置无效"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Joystick Mode"
+msgstr "摇杆模式"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Lane Departure Detected"
+msgstr "检测到车道偏离"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Lateral Maneuver Mode"
+msgstr "横向操控模式"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Longitudinal Maneuver Mode"
+msgstr "纵向操控模式"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Low Memory"
+msgstr "内存不足"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Out of Storage"
+msgstr "存储空间不足"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Pay Attention"
+msgstr "请注意路况"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Posenet Speed Invalid"
+msgstr "Posenet 速度无效"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Process Not Running"
+msgstr "进程未运行"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Recalibrating"
+msgstr "重新校准中"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Recording Audio Feedback"
+msgstr "正在录制音频反馈"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Remount Device (Pitch: {:.1f}°, Yaw: {:.1f}°"
+msgstr "重新安装设备（俯仰：{:.1f}°，偏航：{:.1f}°"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Risk of Collision"
+msgstr "碰撞风险"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Security Key Not Available"
+msgstr "安全密钥不可用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Steer ratio mismatch"
+msgstr "转向比不匹配"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Steer Assist Unavailable Below {}"
+msgstr "转向辅助在 {} 以下不可用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Steering Assist Temporarily Unavailable"
+msgstr "转向辅助暂时不可用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Steering misalignment detected"
+msgstr "检测到转向偏差"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Steering rack geometry may be off (Ratio: {:.1f})"
+msgstr "转向齿条几何可能异常（比例：{:.1f}）"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Stock AEB: Risk of Collision"
+msgstr "原厂 AEB：碰撞风险"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Stock LKAS: Lane Departure Detected"
+msgstr "原厂 LKAS：检测到车道偏离"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "System Initializing"
+msgstr "系统初始化中"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "System Overheated"
+msgstr "系统过热"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Toggle stock LKAS on or off to engage"
+msgstr "请切换原厂 LKAS 开关以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Switch to Traffic-Aware Cruise Control to engage"
+msgstr "请切换到交通感知巡航控制以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "WARNING: This branch is not tested"
+msgstr "警告：此分支未经测试"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "paramsd Temporary Error"
+msgstr "paramsd 临时错误"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "openpilot will disengage"
+msgstr "openpilot 即将脱离"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Always keep hands on wheel and eyes on road"
+msgstr "请始终握住方向盘并注视路面"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Driving Personality: {}"
+msgstr "驾驶个性：{}"
+
