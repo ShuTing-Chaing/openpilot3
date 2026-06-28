@@ -61,7 +61,7 @@ class SettingsLayout(Widget):
       PanelType.TOGGLES: PanelInfo(tr_noop("Toggles"), TogglesLayout()),
       PanelType.SOFTWARE: PanelInfo(tr_noop("Software"), SoftwareLayout()),
       PanelType.DEVELOPER: PanelInfo(tr_noop("Developer"), DeveloperLayout()),
-      PanelType.DRAGONPILOT: PanelInfo("dp", DragonpilotLayout()),
+      PanelType.DRAGONPILOT: PanelInfo(tr_noop("Advanced"), DragonpilotLayout()),
     }
 
     self._font_medium = gui_app.font(FontWeight.MEDIUM)
