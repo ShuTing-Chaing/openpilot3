@@ -4,10 +4,9 @@ Mirror of upstream openpilot's DeveloperLayout settings for the dashy web UI.
 See openpilot.toggles.py for the rationale (DASHY-gated, no param_type, etc.).
 
 Notes:
-- AlphaLongitudinalEnabled / JoystickDebugMode / LongitudinalManeuverMode are
-  hidden on release builds in the device UI (DeveloperLayout._update_toggles).
-  Mirror them with `condition: "DASHY and not IS_RELEASE"` so release-branch
-  dashy hides them too.
+- AlphaLongitudinalEnabled is hidden on release builds in the device UI
+  (DeveloperLayout._update_toggles). Mirror with
+  `condition: "DASHY and not IS_RELEASE"` so release-branch dashy hides it too.
 - SSH Keys: rendered as a text_input (GithubUsername) + text_display
   (GithubSshKeys) + clear button. The actual github.com fetch is handled by
   the dashy action endpoint /api/action/ssh_key_set since it has side effects
@@ -34,16 +33,6 @@ ITEMS = [
     "section": _SEC, "key": "SshEnabled", "type": "toggle_item",
     "title": lambda: tr("Enable SSH"),
     "condition": _DASHY,
-  },
-  {
-    "section": _SEC, "key": "JoystickDebugMode", "type": "toggle_item",
-    "title": lambda: tr("Joystick Debug Mode"),
-    "condition": _DASHY_ALPHA,
-  },
-  {
-    "section": _SEC, "key": "LongitudinalManeuverMode", "type": "toggle_item",
-    "title": lambda: tr("Longitudinal Maneuver Mode"),
-    "condition": _DASHY_ALPHA,
   },
   {
     "section": _SEC, "key": "AlphaLongitudinalEnabled", "type": "toggle_item",
