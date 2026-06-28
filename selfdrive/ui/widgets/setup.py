@@ -37,26 +37,12 @@ class SetupWidget(Widget):
     x_center = rect.x + rect.width / 2
     y_center = rect.y + rect.height / 2
 
-    # === Top section: brand logo area ===
-    # Star decorations
-    star_font = gui_app.font(FontWeight.NORMAL)
-    star_size = 32
-    left_star = rl.measure_text_ex(star_font, "✦", star_size, 0)
-    rl.draw_text_ex(star_font, "✦", rl.Vector2(x_center - 105 - left_star.x, y_center - 135), star_size, 0, ACCENT)
-    rl.draw_text_ex(star_font, "✦", rl.Vector2(x_center + 105, y_center - 135), star_size, 0, ACCENT)
-
     # MR.ONE title
     bold_font = gui_app.font(FontWeight.BOLD)
     title = "MR.ONE"
     title_size = 85
     title_measure = rl.measure_text_ex(bold_font, title, title_size, 0)
     rl.draw_text_ex(bold_font, title, rl.Vector2(x_center - title_measure.x / 2, y_center - 130), title_size, 0, ACCENT)
-
-    # Subtitle
-    subtitle = tr("更智能的驾驶体验")
-    sub_size = 42
-    sub_measure = rl.measure_text_ex(star_font, subtitle, sub_size, 0)
-    rl.draw_text_ex(star_font, subtitle, rl.Vector2(x_center - sub_measure.x / 2, y_center - 45), sub_size, 0, rl.Color(180, 185, 200, 255))
 
     # === Separator ===
     sep_y = y_center + 5
@@ -72,8 +58,8 @@ class SetupWidget(Widget):
     # === Footer: version & url ===
     footer_text = "V0.11.1  |  www.mr-one.cn"
     footer_size = 30
-    footer_measure = rl.measure_text_ex(star_font, footer_text, footer_size, 0)
-    rl.draw_text_ex(star_font, footer_text, rl.Vector2(x_center - footer_measure.x / 2, rect.y + rect.height - 50), footer_size, 0, rl.Color(110, 115, 135, 255))
+    footer_measure = rl.measure_text_ex(bold_font, footer_text, footer_size, 0)
+    rl.draw_text_ex(bold_font, footer_text, rl.Vector2(x_center - footer_measure.x / 2, rect.y + rect.height - 50), footer_size, 0, rl.Color(110, 115, 135, 255))
 
   def _render_firehose_prompt(self, rect: rl.Rectangle):
     """Render firehose prompt widget."""
