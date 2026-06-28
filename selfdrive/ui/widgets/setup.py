@@ -1,18 +1,15 @@
 import pyray as rl
-from openpilot.common.params import Params
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.button import Button, ButtonStyle
 from openpilot.system.ui.widgets.label import Label
-import os
 
 
 class SetupWidget(Widget):
   def __init__(self):
     super().__init__()
-    self.params = Params()
     self._open_settings_callback = None
     self._open_settings_btn = Button(lambda: tr("Open"), lambda: self._open_settings_callback() if self._open_settings_callback else None,
                                      button_style=ButtonStyle.PRIMARY)
@@ -20,10 +17,6 @@ class SetupWidget(Widget):
 
   def set_open_settings_callback(self, callback):
     self._open_settings_callback = callback
-
-  def _get_version(self) -> str:
-    description = self.params.get("UpdaterCurrentDescription")
-    return f"V{description}" if description else "V0.11.1"
 
   def _render(self, rect: rl.Rectangle):
     if not ui_state.prime_state.is_paired():
@@ -77,7 +70,7 @@ class SetupWidget(Widget):
     rl.draw_text_ex(bold_font, warn, rl.Vector2(x_center - warn_measure.x / 2, y_center + 35), warn_size, 0, rl.Color(201, 34, 49, 255))
 
     # === Footer: version & url ===
-    footer_text = f"{self._get_version()}  |  www.mr-one.cn"
+    footer_text = "V0.11.1  |  www.mr-one.cn"
     footer_size = 30
     footer_measure = rl.measure_text_ex(star_font, footer_text, footer_size, 0)
     rl.draw_text_ex(star_font, footer_text, rl.Vector2(x_center - footer_measure.x / 2, rect.y + rect.height - 50), footer_size, 0, rl.Color(110, 115, 135, 255))
