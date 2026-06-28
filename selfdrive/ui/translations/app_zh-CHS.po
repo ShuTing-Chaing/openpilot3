@@ -1040,3 +1040,15 @@ msgstr "请始终握住方向盘并注视路面"
 msgid "Driving Personality: {}"
 msgstr "驾驶个性：{}"
 
+
+msgid "Vehicle Model"
+msgstr "车辆型号"
+
+msgid "[AUTO DETECT]"
+msgstr "[自动检测]"
+
+msgid "Vehicle Model list not found."
+msgstr "未找到车辆型号列表"
+
+msgid "Vehicle Model list is not a valid format."
+msgstr "车辆型号列表格式无效"
