@@ -58,13 +58,6 @@ class DeveloperLayout(Widget):
     )
     self._ssh_keys = ssh_key_item(lambda: tr("SSH Keys"), description=lambda: tr(DESCRIPTIONS["ssh_key"]))
 
-    self._lat_maneuver_toggle = toggle_item(
-      lambda: tr("Lateral Maneuver Mode"),
-      description="",
-      initial_state=self._params.get_bool("LateralManeuverMode"),
-      callback=self._on_lat_maneuver_mode,
-    )
-
     self._alpha_long_toggle = toggle_item(
       lambda: tr("openpilot Longitudinal Control (Alpha)"),
       description=lambda: tr(DESCRIPTIONS["alpha_longitudinal"]),
@@ -85,7 +78,6 @@ class DeveloperLayout(Widget):
       self._adb_toggle,
       self._ssh_toggle,
       self._ssh_keys,
-      self._lat_maneuver_toggle,
       self._alpha_long_toggle,
       self._ui_debug_toggle,
       button_item(lambda: tr("Show Last Errors"), lambda: tr("Show"), callback=self._on_show_last_errors),
@@ -107,8 +99,7 @@ class DeveloperLayout(Widget):
 
     # Hide non-release toggles on release builds
     # TODO: we can do an onroad cycle, but alpha long toggle requires a deinit function to re-enable radar and not fault
-    for item in (self._lat_maneuver_toggle, self._alpha_long_toggle):
-      item.set_visible(not self._is_release)
+    self._alpha_long_toggle.set_visible(not self._is_release)
 
     # CP gating
     if ui_state.CP is not None:
@@ -121,7 +112,6 @@ class DeveloperLayout(Widget):
 
       pass
     else:
-      self._lat_maneuver_toggle.action_item.set_enabled(False)
       self._alpha_long_toggle.set_visible(False)
 
     # TODO: make a param control list item so we don't need to manage internal state as much here
@@ -129,7 +119,6 @@ class DeveloperLayout(Widget):
     for key, item in (
       ("AdbEnabled", self._adb_toggle),
       ("SshEnabled", self._ssh_toggle),
-      ("LateralManeuverMode", self._lat_maneuver_toggle),
       ("AlphaLongitudinalEnabled", self._alpha_long_toggle),
       ("ShowDebugInfo", self._ui_debug_toggle),
     ):
@@ -145,10 +134,6 @@ class DeveloperLayout(Widget):
 
   def _on_enable_ssh(self, state: bool):
     self._params.put_bool("SshEnabled", state, block=True)
-
-  def _on_lat_maneuver_mode(self, state: bool):
-    self._params.put_bool("LateralManeuverMode", state, block=True)
-    self._params.put_bool("ExperimentalMode", False, block=True)
 
   def _on_alpha_long_enabled(self, state: bool):
     if state:
