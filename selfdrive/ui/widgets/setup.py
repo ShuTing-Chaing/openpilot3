@@ -1,12 +1,8 @@
 import pyray as rl
-from openpilot.common.time_helpers import system_time_valid
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.selfdrive.ui.widgets.pairing_dialog import PairingDialog
-from openpilot.system.ui.lib.application import gui_app, FontWeight, FONT_SCALE
+from openpilot.system.ui.lib.application import gui_app, FontWeight
 from openpilot.system.ui.lib.multilang import tr
-from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.widgets import Widget
-from openpilot.system.ui.widgets.confirm_dialog import alert_dialog
 from openpilot.system.ui.widgets.button import Button, ButtonStyle
 from openpilot.system.ui.widgets.label import Label
 
@@ -15,7 +11,6 @@ class SetupWidget(Widget):
   def __init__(self):
     super().__init__()
     self._open_settings_callback = None
-    self._pair_device_btn = Button(lambda: tr("Pair device"), self._show_pairing, button_style=ButtonStyle.PRIMARY)
     self._open_settings_btn = Button(lambda: tr("Open"), lambda: self._open_settings_callback() if self._open_settings_callback else None,
                                      button_style=ButtonStyle.PRIMARY)
     self._firehose_label = Label(lambda: tr("🔥 Firehose Mode 🔥"), font_weight=FontWeight.MEDIUM, font_size=64)
@@ -30,29 +25,25 @@ class SetupWidget(Widget):
       self._render_firehose_prompt(rect)
 
   def _render_registration(self, rect: rl.Rectangle):
-    """Render registration prompt."""
+    """Render safety notice text."""
 
     rl.draw_rectangle_rounded(rl.Rectangle(rect.x, rect.y, rect.width, rect.height), 0.03, 20, rl.Color(51, 51, 51, 255))
 
-    x = rect.x + 64
-    y = rect.y + 48
-    w = rect.width - 128
-
-    # Title
     font = gui_app.font(FontWeight.BOLD)
-    rl.draw_text_ex(font, tr("Finish Setup"), rl.Vector2(x, y), 75, 0, rl.WHITE)
-    y += 113  # 75 + 38 spacing
+    x = rect.x + rect.width / 2
+    y_mid = rect.y + rect.height / 2
 
-    # Description
-    desc = tr("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer.")
-    light_font = gui_app.font(FontWeight.NORMAL)
-    wrapped = wrap_text(light_font, desc, 50, int(w))
-    for line in wrapped:
-      rl.draw_text_ex(light_font, line, rl.Vector2(x, y), 50, 0, rl.WHITE)
-      y += 50 * FONT_SCALE
+    # Line 1: white 100px
+    text1 = tr("欢迎选用 MR.ONE")
+    font_size1 = 100
+    measure1 = rl.measure_text_ex(font, text1, font_size1, 0)
+    rl.draw_text_ex(font, text1, rl.Vector2(x - measure1.x / 2, y_mid - font_size1 - 20), font_size1, 0, rl.WHITE)
 
-    button_rect = rl.Rectangle(x, y + 30, w, 200)
-    self._pair_device_btn.render(button_rect)
+    # Line 2: red 90px
+    text2 = tr("这不是自动驾驶，请注意行车安全")
+    font_size2 = 90
+    measure2 = rl.measure_text_ex(font, text2, font_size2, 0)
+    rl.draw_text_ex(font, text2, rl.Vector2(x - measure2.x / 2, y_mid + 20), font_size2, 0, rl.Color(201, 34, 49, 255))
 
   def _render_firehose_prompt(self, rect: rl.Rectangle):
     """Render firehose prompt widget."""
@@ -84,12 +75,3 @@ class SetupWidget(Widget):
     button_height = 48 + 64  # font size + padding
     button_rect = rl.Rectangle(x, y, w, button_height)
     self._open_settings_btn.render(button_rect)
-
-  @staticmethod
-  def _show_pairing():
-    if not system_time_valid():
-      dlg = alert_dialog(tr("Please connect to Wi-Fi to complete initial pairing"))
-      gui_app.push_widget(dlg)
-      return
-
-    gui_app.push_widget(PairingDialog())
