@@ -1,4 +1,5 @@
 import pyray as rl
+import socket
 import time
 from dataclasses import dataclass
 from collections.abc import Callable
@@ -105,6 +106,18 @@ class Sidebar(Widget):
     self._draw_network_indicator(rect)
     self._draw_metrics(rect)
 
+  def _get_ip_address(self) -> str:
+    """Get the device's local IP address."""
+    try:
+      s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+      s.settimeout(1)
+      s.connect(('10.0.0.1', 80))
+      ip = s.getsockname()[0]
+      s.close()
+      return ip
+    except Exception:
+      return ""
+
   def _update_state(self):
     sm = ui_state.sm
     if not sm.updated['deviceState']:
@@ -209,6 +222,13 @@ class Sidebar(Widget):
     text_y = rect.y + 247
     text_pos = rl.Vector2(rect.x + 58, text_y)
     rl.draw_text_ex(self._font_regular, tr(self._net_type), text_pos, FONT_SIZE, 0, Colors.WHITE)
+
+    # IP address below network type
+    ip = self._get_ip_address()
+    if ip:
+      ip_y = text_y + FONT_SIZE * FONT_SCALE + 8
+      ip_pos = rl.Vector2(rect.x + 58, ip_y)
+      rl.draw_text_ex(self._font_regular, ip, ip_pos, 30, 0, Colors.WHITE_DIM)
 
   def _draw_metrics(self, rect: rl.Rectangle):
     metrics = [(self._temp_status, 338), (self._panda_status, 496)]
