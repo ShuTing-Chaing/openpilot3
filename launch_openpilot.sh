@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 export ATHENA_HOST='ws://athena.mr-one.cn'
-export API_HOST='http://res.mr-one.cn'
+export API_HOST='http://vip.mr-one.cn'
 # Skip onboarding on startup
 echo -n "2" > /data/params/d/HasAcceptedTerms
 echo -n "1.0" > /data/params/d/HasAcceptedTermsSP
