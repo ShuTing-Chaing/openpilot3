@@ -1,10 +1,25 @@
 #include "selfdrive/pandad/pandad.h"
 #include "cereal/messaging/messaging.h"
 #include "common/swaglog.h"
+#include "common/timing.h"
+
+#define RELAY_DELAY_SEC 5U // Wait N seconds before switching the relay after going onroad
 
 void PandaSafety::configureSafetyMode(bool is_onroad) {
   if (is_onroad && !safety_configured_) {
     updateMultiplexingMode();
+
+    // Record the first time we go onroad
+    if (first_onroad_nanos_ == 0U) {
+      first_onroad_nanos_ = nanos_since_boot();
+    }
+
+    // Wait RELAY_DELAY_SEC seconds before switching the relay, to let
+    // the vehicle's CAN buses fully initialize.
+    uint64_t elapsed_nanos = nanos_since_boot() - first_onroad_nanos_;
+    if (elapsed_nanos < RELAY_DELAY_SEC * 1000000000ULL) {
+      return; // not enough time has passed yet
+    }
 
     auto car_params = fetchCarParams();
     if (!car_params.empty()) {
@@ -16,6 +31,7 @@ void PandaSafety::configureSafetyMode(bool is_onroad) {
     initialized_ = false;
     safety_configured_ = false;
     log_once_ = false;
+    first_onroad_nanos_ = 0U;
   }
 }
 

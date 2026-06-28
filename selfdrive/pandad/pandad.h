@@ -21,6 +21,7 @@ private:
   bool log_once_ = false;
   bool safety_configured_ = false;
   bool prev_obd_multiplexing_ = false;
+  uint64_t first_onroad_nanos_ = 0;
   Panda *panda_;
   Params params_;
 };
