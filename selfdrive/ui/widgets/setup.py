@@ -61,7 +61,7 @@ class SetupWidget(Widget):
     # === Separator ===
     sep_y = y_center + 5
     sep_w = 280
-    rl.draw_rectangle(rl.Rectangle(int(x_center - sep_w / 2), int(sep_y), sep_w, 2), SEPARATOR)
+    rl.draw_rectangle(int(x_center - sep_w / 2), int(sep_y), sep_w, 2, SEPARATOR)
 
     # === Bottom section: safety notice ===
     warn = tr("这不是自动驾驶，请注意行车安全")
