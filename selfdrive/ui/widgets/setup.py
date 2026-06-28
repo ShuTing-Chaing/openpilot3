@@ -15,7 +15,7 @@ class SetupWidget(Widget):
   def __init__(self):
     super().__init__()
     self._open_settings_callback = None
-    self._pair_kitty_texture = gui_app.texture("../../dragonpilot/selfdrive/assets/hellokitty.png", 400, 400)
+    self._pair_device_btn = Button(lambda: tr("Pair device"), self._show_pairing, button_style=ButtonStyle.PRIMARY)
     self._open_settings_btn = Button(lambda: tr("Open"), lambda: self._open_settings_callback() if self._open_settings_callback else None,
                                      button_style=ButtonStyle.PRIMARY)
     self._firehose_label = Label(lambda: tr("🔥 Firehose Mode 🔥"), font_weight=FontWeight.MEDIUM, font_size=64)
@@ -30,16 +30,29 @@ class SetupWidget(Widget):
       self._render_firehose_prompt(rect)
 
   def _render_registration(self, rect: rl.Rectangle):
-    """Render Hello Kitty image as pairing prompt."""
+    """Render registration prompt."""
 
     rl.draw_rectangle_rounded(rl.Rectangle(rect.x, rect.y, rect.width, rect.height), 0.03, 20, rl.Color(51, 51, 51, 255))
 
-    # Center the Hello Kitty texture in the card
-    img_w = self._pair_kitty_texture.width
-    img_h = self._pair_kitty_texture.height
-    img_x = rect.x + (rect.width - img_w) / 2
-    img_y = rect.y + (rect.height - img_h) / 2
-    rl.draw_texture_ex(self._pair_kitty_texture, rl.Vector2(img_x, img_y), 0.0, 1.1, rl.WHITE)
+    x = rect.x + 64
+    y = rect.y + 48
+    w = rect.width - 128
+
+    # Title
+    font = gui_app.font(FontWeight.BOLD)
+    rl.draw_text_ex(font, tr("Finish Setup"), rl.Vector2(x, y), 75, 0, rl.WHITE)
+    y += 113  # 75 + 38 spacing
+
+    # Description
+    desc = tr("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer.")
+    light_font = gui_app.font(FontWeight.NORMAL)
+    wrapped = wrap_text(light_font, desc, 50, int(w))
+    for line in wrapped:
+      rl.draw_text_ex(light_font, line, rl.Vector2(x, y), 50, 0, rl.WHITE)
+      y += 50 * FONT_SCALE
+
+    button_rect = rl.Rectangle(x, y + 30, w, 200)
+    self._pair_device_btn.render(button_rect)
 
   def _render_firehose_prompt(self, rect: rl.Rectangle):
     """Render firehose prompt widget."""
