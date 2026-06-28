@@ -140,7 +140,6 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"dp_vag_avoid_eps_lockout", {PERSISTENT, BOOL, "0"}},
     {"dp_toyota_door_auto_lock_unlock", {PERSISTENT, BOOL, "0"}},
     {"dp_dev_audible_alert_mode", {PERSISTENT, INT, "0"}},
-    {"dp_dev_auto_shutdown_in", {PERSISTENT, INT, "-5"}},
     {"dp_dev_dashy", {PERSISTENT, BOOL, "0"}},
     {"dp_dev_delay_loggerd", {PERSISTENT, INT, "0"}},
     {"dp_dev_disable_connect", {PERSISTENT, BOOL, "0"}},
