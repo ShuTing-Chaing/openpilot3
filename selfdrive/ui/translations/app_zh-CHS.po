@@ -171,7 +171,7 @@ msgstr "拒绝并卸载 openpilot"
 
 #: openpilot/selfdrive/ui/layouts/settings/settings.py
 msgid "Developer"
-msgstr "开发者"
+msgstr "开发"
 
 #: openpilot/selfdrive/ui/layouts/settings/settings.py
 msgid "Device"
