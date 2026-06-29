@@ -49,6 +49,13 @@ class SetupWidget(Widget):
     sep_w = 280
     rl.draw_rectangle(int(x_center - sep_w / 2), int(sep_y), sep_w, 2, SEPARATOR)
 
+    # DragonPilot attribution
+    normal_font = gui_app.font(FontWeight.NORMAL)
+    attr = tr("基于 DragonPilot 深度定制")
+    attr_size = 36
+    attr_measure = rl.measure_text_ex(normal_font, attr, attr_size, 0)
+    rl.draw_text_ex(normal_font, attr, rl.Vector2(x_center - attr_measure.x / 2, sep_y + 22), attr_size, 0, rl.Color(160, 165, 180, 255))
+
     # === Bottom section: safety notice ===
     warn = tr("这不是自动驾驶，请注意行车安全")
     warn_size = 68
