@@ -301,7 +301,7 @@ msgstr ""
 #: dragonpilot/settings/min-feat.lat.lca.py:8
 #, python-format
 msgid "Lane Change Assist At:"
-msgstr "变换车道辅助启用速度："
+msgstr "打灯变道启用的最低速度："
 
 #: dragonpilot/settings/openpilot.developer.py:85
 #, python-format
