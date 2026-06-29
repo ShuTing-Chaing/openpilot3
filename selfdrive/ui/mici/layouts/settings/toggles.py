@@ -17,7 +17,6 @@ class TogglesLayoutMici(NavScroller):
     self._experimental_btn = BigParamControl("experimental mode", "ExperimentalMode")
     is_metric_toggle = BigParamControl("use metric units", "IsMetric")
     ldw_toggle = BigParamControl("lane departure warnings", "IsLdwEnabled")
-    record_front = BigParamControl("record & upload driver camera", "RecordFront", toggle_callback=restart_needed_callback)
     record_mic = BigParamControl("record & upload mic audio", "RecordAudio", toggle_callback=restart_needed_callback)
     enable_openpilot = BigParamControl("enable openpilot", "OpenpilotEnabledToggle", toggle_callback=restart_needed_callback)
 
@@ -26,7 +25,6 @@ class TogglesLayoutMici(NavScroller):
       self._experimental_btn,
       is_metric_toggle,
       ldw_toggle,
-      record_front,
       record_mic,
       enable_openpilot,
     ])
@@ -36,13 +34,11 @@ class TogglesLayoutMici(NavScroller):
       ("ExperimentalMode", self._experimental_btn),
       ("IsMetric", is_metric_toggle),
       ("IsLdwEnabled", ldw_toggle),
-      ("RecordFront", record_front),
       ("RecordAudio", record_mic),
       ("OpenpilotEnabledToggle", enable_openpilot),
     )
 
     enable_openpilot.set_enabled(lambda: not ui_state.engaged)
-    record_front.set_enabled(False if ui_state.params.get_bool("RecordFrontLock") else (lambda: not ui_state.engaged))
     record_mic.set_enabled(lambda: not ui_state.engaged)
 
     if ui_state.params.get_bool("ShowDebugInfo"):
