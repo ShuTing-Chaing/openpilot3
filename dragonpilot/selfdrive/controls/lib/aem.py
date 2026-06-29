@@ -25,10 +25,16 @@ THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR I
 THROTTLE_ACC_PROB     = 0.6  # gasPressProb >= this -> model wants throttle -> ACC
 THROTTLE_BLENDED_PROB = 0.4  # gasPressProb <= this -> model easing off     -> BLENDED
 
+# Blending factor for smooth mode transitions.
+# At 20 Hz, 40 frames ≈ 2 seconds to fully blend.
+BLEND_RAMP_FRAMES = 40
+
 
 class AEM:
   def __init__(self):
     self._throttle_prob = 1.0
+    self._blend = 0.0            # 0 = full blended, 1 = full acc
+    self._prev_mode = 'blended'
 
   def update_states(self, model_msg, radar_msg, v_ego):
     # Probability the model wants to be on throttle (same signal the planner uses
@@ -37,7 +43,15 @@ class AEM:
     self._throttle_prob = probs[1] if len(probs) > 1 else 1.0
 
   def get_mode(self, mode):
-    if mode == 'blended':  # blended-first: borrow ACC only when clearly wanting throttle
-      return 'acc' if self._throttle_prob >= THROTTLE_ACC_PROB else 'blended'
-    # acc-first: borrow BLENDED only when clearly easing off
-    return 'blended' if self._throttle_prob <= THROTTLE_BLENDED_PROB else 'acc'
+    target = 'acc' if self._throttle_prob >= THROTTLE_ACC_PROB else 'blended'
+    if mode != 'blended':
+      # acc-first mode logic: swap when easing off
+      target = 'blended' if self._throttle_prob <= THROTTLE_BLENDED_PROB else 'acc'
+
+    # Ramp blend factor toward target
+    if target == 'acc':
+      self._blend = min(self._blend + 1.0 / BLEND_RAMP_FRAMES, 1.0)
+    else:
+      self._blend = max(self._blend - 1.0 / BLEND_RAMP_FRAMES, 0.0)
+
+    return self._blend, target
