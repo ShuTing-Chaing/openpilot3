@@ -20,7 +20,6 @@ DESCRIPTIONS = {
     "Use the openpilot system for adaptive cruise control and lane keep driver assistance. " +
     "Your attention is required at all times to use this feature."
   ),
-  "DisengageOnAccelerator": tr_noop("When enabled, pressing the accelerator pedal will disengage openpilot."),
   "LongitudinalPersonality": tr_noop(
     "Standard is recommended. In aggressive mode, openpilot will follow lead cars closer and be more aggressive with the gas and brake. " +
     "In relaxed mode openpilot will stay further away from lead cars. On supported cars, you can cycle through these personalities with " +
@@ -30,7 +29,6 @@ DESCRIPTIONS = {
     "Receive alerts to steer back into the lane when your vehicle drifts over a detected lane line " +
     "without a turn signal activated while driving over 31 mph (50 km/h)."
   ),
-  "AlwaysOnDM": tr_noop("Enable driver monitoring even when openpilot is not engaged."),
   'RecordFront': tr_noop("Upload data from the driver facing camera and help improve the driver monitoring algorithm."),
   "IsMetric": tr_noop("Display speed in km/h instead of mph."),
   "RecordAudio": tr_noop("Record and store microphone audio while driving. The audio will be included in the dashcam video in comma connect."),
@@ -59,22 +57,10 @@ class TogglesLayout(Widget):
         "experimental_white.png",
         False,
       ),
-      "DisengageOnAccelerator": (
-        lambda: tr("Disengage on Accelerator Pedal"),
-        DESCRIPTIONS["DisengageOnAccelerator"],
-        "disengage_on_accelerator.png",
-        False,
-      ),
       "IsLdwEnabled": (
         lambda: tr("Enable Lane Departure Warnings"),
         DESCRIPTIONS["IsLdwEnabled"],
         "warning.png",
-        False,
-      ),
-      "AlwaysOnDM": (
-        lambda: tr("Always-On Driver Monitoring"),
-        DESCRIPTIONS["AlwaysOnDM"],
-        "monitoring.png",
         False,
       ),
       "RecordFront": (
@@ -153,8 +139,8 @@ class TogglesLayout(Widget):
 
       self._toggles[param] = toggle
 
-      # insert longitudinal personality after NDOG toggle
-      if param == "DisengageOnAccelerator":
+      # insert longitudinal personality after LDW toggle
+      if param == "IsLdwEnabled":
         self._toggles["LongitudinalPersonality"] = self._long_personality_setting
 
     self._update_experimental_mode_icon()

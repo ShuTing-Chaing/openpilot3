@@ -34,21 +34,9 @@ ITEMS = [
     "condition": _DASHY,
   },
   {
-    "section": _SEC, "key": "DisengageOnAccelerator", "type": "toggle_item",
-    "title": lambda: tr("Disengage on Accelerator Pedal"),
-    "description": lambda: tr(_TOGGLES_DESC["DisengageOnAccelerator"]),
-    "condition": _DASHY,
-  },
-  {
     "section": _SEC, "key": "IsLdwEnabled", "type": "toggle_item",
     "title": lambda: tr("Enable Lane Departure Warnings"),
     "description": lambda: tr(_TOGGLES_DESC["IsLdwEnabled"]),
-    "condition": _DASHY,
-  },
-  {
-    "section": _SEC, "key": "AlwaysOnDM", "type": "toggle_item",
-    "title": lambda: tr("Always-On Driver Monitoring"),
-    "description": lambda: tr(_TOGGLES_DESC["AlwaysOnDM"]),
     "condition": _DASHY,
   },
   {
