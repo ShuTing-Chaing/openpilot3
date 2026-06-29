@@ -1052,3 +1052,216 @@ msgstr "未找到车辆型号列表"
 
 msgid "Vehicle Model list is not a valid format."
 msgstr "车辆型号列表格式无效"
+
+# === events.py alerts (continued) ===
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Fan Malfunction"
+msgstr "风扇故障"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Camera Frame Rate Low"
+msgstr "摄像头帧率过低"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Harness Relay Malfunction"
+msgstr "线束继电器故障"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Vehicle Sensors Calibrating"
+msgstr "车辆传感器校准中"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "openpilot failed to cancel cruise"
+msgstr "openpilot 无法取消巡航"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Camera Malfunction: Reboot Your Device"
+msgstr "摄像头故障：请重启设备"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Camera Frame Rate Low: Reboot Your Device"
+msgstr "摄像头帧率过低：请重启设备"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "locationd Temporary Error"
+msgstr "locationd 临时错误"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "locationd Permanent Error"
+msgstr "locationd 永久错误"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "paramsd Permanent Error"
+msgstr "paramsd 永久错误"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Cancel Pressed"
+msgstr "已按下取消"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Parking Brake Engaged"
+msgstr "手刹已拉起"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Steering Pressed"
+msgstr "已干预方向盘"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Press Set to Engage"
+msgstr "按下 SET 以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Adaptive Cruise Disabled"
+msgstr "自适应巡航已关闭"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Steering Temporarily Unavailable"
+msgstr "转向暂时不可用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Vehicle Steering Time Limit"
+msgstr "方向盘操控超时"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Sensor Data Invalid"
+msgstr "传感器数据无效"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Distraction Level Too High"
+msgstr "分心程度过高"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Excessive Actuation"
+msgstr "操作幅度过大"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Gear not D"
+msgstr "档位不在 D 档"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Calibration Invalid: Remount Device & Recalibrate"
+msgstr "校准无效：请重新安装设备并重新校准"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Calibration in Progress"
+msgstr "校准进行中"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Remount Detected: Recalibrating"
+msgstr "检测到重新安装：正在重新校准"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Door Open"
+msgstr "车门未关"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Seatbelt Unlatched"
+msgstr "安全带未系"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Electronic Stability Control Disabled"
+msgstr "电子稳定系统已关闭"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Low Battery"
+msgstr "电池电量低"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Low Communication Rate Between Processes"
+msgstr "进程间通信速率过低"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Selfdrive Process Lagging: Reboot Your Device"
+msgstr "Selfdrive 进程延迟：请重启设备"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Radar Error: Restart the Car"
+msgstr "雷达错误：请重启车辆"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Radar Temporarily Unavailable"
+msgstr "雷达暂时不可用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Device Fell Off Mount"
+msgstr "设备从支架脱落"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Low Memory: Reboot Your Device"
+msgstr "内存不足：请重启设备"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Cruise Fault: Restart the Car"
+msgstr "巡航故障：请重启车辆"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Cruise Fault: Restart the car to engage"
+msgstr "巡航故障：请重启车辆以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Electronic Stability Control Active"
+msgstr "电子稳定系统已启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Controls Mismatch"
+msgstr "控制不匹配"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "USB Error: Reboot Your Device"
+msgstr "USB 错误：请重启设备"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Unknown Vehicle Variant"
+msgstr "未知车辆型号"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "CAN Bus Disconnected"
+msgstr "CAN 总线断开"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "CAN Bus Disconnected: Check Connections"
+msgstr "CAN 总线断开：请检查连接"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "LKAS Fault: Restart the Car"
+msgstr "LKAS 故障：请重启车辆"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "LKAS Fault: Restart the car to engage"
+msgstr "LKAS 故障：请重启车辆以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Reverse Gear"
+msgstr "倒车档"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Cruise Is Off"
+msgstr "巡航已关闭"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Slow down to engage"
+msgstr "请减速以启用"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Vehicle Sensors Invalid"
+msgstr "车辆传感器无效"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Reverse"
+msgstr "倒车"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Likely Hardware Issue"
+msgstr "可能是硬件问题"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Reboot your Device"
+msgstr "请重启设备"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Check Hardware"
+msgstr "请检查硬件"
+
+#: openpilot/selfdrive/selfdrived/events.py
+msgid "Drive to Calibrate"
+msgstr "请驾驶以完成校准"
