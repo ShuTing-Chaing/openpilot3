@@ -190,7 +190,7 @@ msgstr ""
 #: dragonpilot/settings/brand.toyota.door-auto-lock-unlock.py:8
 #, python-format
 msgid "Door Auto Lock/Unlock"
-msgstr "车门自动锁定/解锁"
+msgstr "车门自动锁定/解锁（丰田专用）"
 
 #: dragonpilot/settings/openpilot.toggles.py:87
 #, python-format
