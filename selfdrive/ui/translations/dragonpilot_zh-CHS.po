@@ -376,7 +376,7 @@ msgstr "关闭 = 停用变换车道辅助。<br>1 英里/时 = 1.2 公里/时。
 #: dragonpilot/settings/min-feat.lat.lat-offset.py:8
 #, python-format
 msgid "Position Offset"
-msgstr "位置偏移"
+msgstr "居中位置调节（往左+ 往右-）"
 
 #: dragonpilot/selfdrive/ui/layouts/settings/dragonpilot.py:60
 #, python-format
