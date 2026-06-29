@@ -21,7 +21,7 @@ from openpilot.system.ui.widgets import Widget, DialogResult
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.widgets.scroller_tici import Scroller
 from dragonpilot.system.ui.lib.multilang import tr
-from openpilot.system.ui.widgets.list_view import toggle_item, simple_item, button_item, spin_button_item, double_spin_button_item, text_spin_button_item
+from openpilot.system.ui.widgets.list_view import toggle_item, button_item, spin_button_item, double_spin_button_item, text_spin_button_item
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.widgets.confirm_dialog import ConfirmDialog
 from openpilot.system.hardware import HARDWARE
@@ -72,20 +72,9 @@ class DragonpilotLayout(Widget):
       if not self._check_condition(section.get("condition")):
         continue
 
-      title_key = f"title_{i}"
-      self._toggles[title_key] = simple_item(title=f"{section['title']}")
-      count_after_title = len(self._toggles)
-
       for setting in section.get("settings", []):
         if self._check_condition(setting.get("condition")) and self._check_brands(setting.get("brands")):
           self._create_item(setting)
-
-      # Drop the header if nothing rendered under it: all items filtered out
-      # (brand/condition) or no device widget factory for the item type
-      # (e.g. dashy-only text_display/text_input/action items). Avoids an
-      # orphan "### Section ###" with no controls.
-      if len(self._toggles) == count_after_title:
-        del self._toggles[title_key]
 
   def _check_condition(self, condition):
     if not condition:
