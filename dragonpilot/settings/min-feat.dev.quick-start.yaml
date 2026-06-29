@@ -1,0 +1,9 @@
+settings:
+  - key: dp_dev_quick_start
+    type: toggle_item
+    title: "Quick Start"
+    description: "If enabled, creates a prebuilt file under openpilot root to skip Git operations on startup."
+    category: "Device"
+    flags: PERSISTENT
+    param_type: BOOL
+    default: "0"

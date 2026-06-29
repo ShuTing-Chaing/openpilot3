@@ -684,3 +684,8 @@ msgstr "秒"
 #, python-format
 #~ msgid "dashy HUD"
 #~ msgstr "dashy HUD"
+
+#: dragonpilot/settings/min-feat.dev.quick-start.py:8
+#, python-format
+msgid "Quick Start"
+msgstr "快速启动"

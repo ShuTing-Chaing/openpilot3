@@ -9,5 +9,11 @@ echo -n "1.0" > /data/params/d/CompletedSunnylinkConsentVersion  # Sunnylink 同
 echo -n "1" > /data/params/d/IsMetric
 echo -n "zh-CHS" > /data/params/d/LanguageSetting
 
+# Quick Start: create/remove prebuilt marker based on params
+if [ -f /data/params/d/dp_dev_quick_start ] && [ "$(cat /data/params/d/dp_dev_quick_start)" = "1" ]; then
+  touch ./prebuilt
+else
+  rm -f ./prebuilt
+fi
 
 exec ./launch_chffrplus.sh
