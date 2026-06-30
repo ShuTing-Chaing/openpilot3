@@ -177,16 +177,9 @@ class LongitudinalPlanner:
     mode = 'blended' if sm['selfdriveState'].experimentalMode else 'acc'
     if dp_flags & DPFlags.AEM:
       self.aem.update_states(model_msg=sm['modelV2'], radar_msg=sm['radarState'], v_ego=sm['carState'].vEgo)
-      aem_blend, aem_mode = self.aem.get_mode(mode)
-      # Smooth blend between e2e (blended) and mpc (acc) using linear interpolation
-      a_target_e2e = min(output_a_target_e2e, output_a_target_mpc)
-      output_a_target = a_target_e2e * (1.0 - aem_blend) + output_a_target_mpc * aem_blend
-      self.output_should_stop = output_should_stop_e2e or output_should_stop_mpc
-      if aem_mode == 'blended' and a_target_e2e < output_a_target_mpc:
-        self.mpc.source = LongitudinalPlanSource.e2e
-      else:
-        self.mpc.source = LongitudinalPlanSource.mpc
-    elif mode == 'blended':
+      mode = self.aem.get_mode(mode)
+
+    if mode == 'blended':
       output_a_target = min(output_a_target_e2e, output_a_target_mpc)
       self.output_should_stop = output_should_stop_e2e or output_should_stop_mpc
       if output_a_target < output_a_target_mpc:
