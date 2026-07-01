@@ -28,6 +28,55 @@ MIN_ALLOW_THROTTLE_SPEED = 2.5
 _A_TOTAL_MAX_V = [1.7, 3.2]
 _A_TOTAL_MAX_BP = [20., 40.]
 
+# Vision-based curve slowdown: look ahead 1~3 seconds for max curvature
+_CURVE_LOOKAHEAD_START = 1.0    # 最早看未来多少秒
+_CURVE_LOOKAHEAD_END = 3.0      # 最远看未来多少秒
+_CURVE_SLOWDOWN_THRESHOLD = 5.0  # 横向加速度超过此值开始减速 (m/s²)
+
+def get_future_curvature(position_x, position_y, v_ego, t_idxs, lookahead_start, lookahead_end):
+  """从模型轨迹 position.x/y 计算前方指定时间窗口内的最大曲率"""
+  # 找到对应时间窗口的索引
+  idxs = [i for i, t in enumerate(t_idxs) if lookahead_start <= t <= lookahead_end]
+  if len(idxs) < 2:
+    return 0.0
+
+  x = np.array(position_x)[idxs]
+  y = np.array(position_y)[idxs]
+
+  # 计算路径上相邻点之间的弯曲程度
+  # 用三点法估算曲率: 在 (x_i, y_i) 处的曲率 = |x' y'' - y' x''| / (x'² + y'²)^1.5
+  curvatures = []
+  for i in range(1, len(idxs) - 1):
+    dx = x[i+1] - x[i-1]
+    dy = y[i+1] - y[i-1]
+    ddx = x[i+1] - 2*x[i] + x[i-1]
+    ddy = y[i+1] - 2*y[i] + y[i-1]
+    denom = (dx*dx + dy*dy) ** 1.5
+    if denom > 1e-6:
+      curv = abs(dx * ddy - dy * ddx) / denom
+      curvatures.append(curv)
+
+  return max(curvatures) if curvatures else 0.0
+
+def limit_accel_in_turns_vision(v_ego, position_x, position_y, t_idxs, a_target):
+  """用视觉轨迹预估前方弯道，限制最大允许纵向加速度"""
+  curvature = get_future_curvature(position_x, position_y, v_ego, t_idxs,
+                                    _CURVE_LOOKAHEAD_START, _CURVE_LOOKAHEAD_END)
+  if curvature < 1e-6:
+    return a_target, 0.0
+
+  a_y_predicted = v_ego ** 2 * curvature
+  if a_y_predicted <= _CURVE_SLOWDOWN_THRESHOLD:
+    return a_target, a_y_predicted
+
+  # 线性减速：横向加速度越大，纵向限制越紧
+  # 基准：a_y=5时无限制，a_y=8时只允许-2 m/s²（主动减速）
+  slowdown_ratio = max(0.0, 1.0 - (a_y_predicted - _CURVE_SLOWDOWN_THRESHOLD) / 4.0)
+  a_x_allowed = np.interp(slowdown_ratio, [0.0, 1.0], [-2.0, a_target[1]])
+
+  return [a_target[0], min(a_target[1], a_x_allowed)], a_y_predicted
+
+
 class DPFlags:
   ACM = 1
   AEM = 2
@@ -66,6 +115,7 @@ class LongitudinalPlanner:
     self.a_desired = init_a
     self.v_desired_filter = FirstOrderFilter(init_v, 2.0, self.dt)
     self.prev_accel_clip = [ACCEL_MIN, ACCEL_MAX]
+    self.curve_brake_filter = FirstOrderFilter(0.0, 0.5, self.dt)  # 弯道减速平滑滤波
     self.output_a_target = 0.0
     self.output_should_stop = False
 
@@ -119,8 +169,17 @@ class LongitudinalPlanner:
     prev_accel_constraint = not (reset_state or sm['carState'].standstill)
 
     accel_clip = [ACCEL_MIN, get_max_accel(v_ego)]
-    steer_angle_without_offset = sm['carState'].steeringAngleDeg - sm['liveParameters'].angleOffsetDeg
-    accel_clip = limit_accel_in_turns(v_ego, steer_angle_without_offset, accel_clip, self.CP)
+
+    # Vision-based curve slowdown (ahead 1~3s), falls back to steering angle method at low speed
+    if v_ego > 5.0:  # >18 km/h, 视觉轨迹更可靠
+      accel_clip_curve, a_y_pred = limit_accel_in_turns_vision(v_ego, sm['modelV2'].position.x, sm['modelV2'].position.y,
+                                                                ModelConstants.T_IDXS, accel_clip)
+      # 平滑滤波，防止弯道减速突然变化
+      filtered_clip = self.curve_brake_filter.update(accel_clip_curve[1])
+      accel_clip[1] = min(accel_clip[1], filtered_clip) if a_y_pred > _CURVE_SLOWDOWN_THRESHOLD else max(accel_clip[1], filtered_clip)
+    else:
+      steer_angle_without_offset = sm['carState'].steeringAngleDeg - sm['liveParameters'].angleOffsetDeg
+      accel_clip = limit_accel_in_turns(v_ego, steer_angle_without_offset, accel_clip, self.CP)
 
     if reset_state:
       self.v_desired_filter.x = v_ego
