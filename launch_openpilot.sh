@@ -6,5 +6,6 @@ export MAPS_HOST=https://api.konik.ai/maps
 echo -n "2" > /data/params/d/HasAcceptedTerms
 echo -n "0.2.0" > /data/params/d/CompletedTrainingVersion
 echo -n "1" > /data/params/d/IsMetric
+echo -n "zh-CHS" > /data/params/d/LanguageSetting
 
 exec ./launch_chffrplus.sh
