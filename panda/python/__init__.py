@@ -704,7 +704,7 @@ class Panda:
     return bytes(part_1 + part_2)
 
   def get_type(self):
-    return Panda.HW_TYPE_TRES
+    ret = self._handle.controlRead(Panda.REQUEST_IN, 0xc1, 0, 0, 0x40)
 
     # old bootstubs don't implement this endpoint, see comment in Panda.device
     if self._bcd_hw_type is not None and (ret is None or len(ret) != 1):
