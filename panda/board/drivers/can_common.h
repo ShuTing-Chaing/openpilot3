@@ -225,6 +225,16 @@ void ignition_can_hook(CANPacket_t *to_push) {
       ignition_can_cnt = 0U;
     }
 
+    // Mazda Gen1 engine RPM based ignition (ENGINE_DATA, 0x202, 100Hz on bus 0)
+    // RPM in byte[0]:byte[1], factor 0.25, engine running when > 0
+    if ((addr == 0x202) && (len == 8)) {
+      int rpm_raw = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
+      if (rpm_raw > 200) {  // ~50 rpm threshold to avoid noise
+        ignition_can = true;
+        ignition_can_cnt = 0U;
+      }
+    }
+
   } else if (bus == 1) {
     // Mazda 2019 exception
     if ((addr == 0x274) && (len == 8)) {
@@ -237,6 +247,16 @@ void ignition_can_hook(CANPacket_t *to_push) {
       // SystemPowerMode (2=Run, 3=Crank Request)
       ignition_can = (GET_BYTE(to_push, 0) & 0x2U) != 0U;
       ignition_can_cnt = 0U;
+    }
+
+    // Mazda Gen2/Gen3 engine RPM based ignition (ENGINE_DATA, 0x202, 100Hz on bus 2 / CAM)
+    // RPM in byte[0]:byte[1], factor 0.25, engine running when > 0
+    if ((addr == 0x202) && (len == 8)) {
+      int rpm_raw = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
+      if (rpm_raw > 200) {  // ~50 rpm threshold to avoid noise
+        ignition_can = true;
+        ignition_can_cnt = 0U;
+      }
     }
   }
 }
