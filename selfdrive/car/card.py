@@ -134,7 +134,12 @@ class Car:
     can_rcv_valid = len(can_strs) > 0
 
     # Check for CAN timeout
-    if not can_rcv_valid:
+    if can_rcv_valid:
+      self.last_can_time = time.monotonic()
+
+    # Check for CAN timeout - only count if we've received CAN recently
+    # If no CAN for >10 seconds (e.g. engine off), treat as normal, avoid error
+    if not can_rcv_valid and (time.monotonic() - self.last_can_time) < 10.0:
       self.can_rcv_cum_timeout_counter += 1
 
     if can_rcv_valid and REPLAY:
