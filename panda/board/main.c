@@ -32,8 +32,9 @@
 // ********************* Serial debugging *********************
 
 bool check_started(void) {
-  bool started = current_board->check_ignition() || ignition_can;
-  return started;
+  //bool started = current_board->check_ignition() || ignition_can;
+  //return started;
+  return true;
 }
 
 void debug_ring_callback(uart_ring *ring) {
