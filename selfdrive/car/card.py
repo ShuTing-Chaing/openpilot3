@@ -100,7 +100,7 @@ class Car:
 
     # card is driven by can recv, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
-
+    self.last_can_time = time.monotonic()
     # FrogPilot variables
     self.frogpilot_card = FrogPilotCard(self)
 
