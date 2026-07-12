@@ -305,7 +305,7 @@ std::optional<bool> send_panda_states(PubMaster *pm, const std::vector<Panda *> 
     // get false positive ignitions due to the harness box
     // without a harness connector, so ignore it
     if (red_panda_comma_three && (panda->hw_type == cereal::PandaState::PandaType::DOS)) {
-      health.ignition_line_pkt = 0;
+      health.ignition_line_pkt = 1;
     }
 
     ignition_local |= ((health.ignition_line_pkt != 0) || (health.ignition_can_pkt != 0));
