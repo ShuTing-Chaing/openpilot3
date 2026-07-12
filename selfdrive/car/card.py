@@ -100,7 +100,7 @@ class Car:
 
     # card is driven by can recv, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
-    self.last_can_time = time.monotonic()
+
     # FrogPilot variables
     self.frogpilot_card = FrogPilotCard(self)
 
@@ -134,12 +134,7 @@ class Car:
     can_rcv_valid = len(can_strs) > 0
 
     # Check for CAN timeout
-    if can_rcv_valid:
-      self.last_can_time = time.monotonic()
-
-    # Check for CAN timeout - only count if we've received CAN recently
-    # If no CAN for >10 seconds (e.g. engine off), treat as normal, avoid error
-    if not can_rcv_valid and (time.monotonic() - self.last_can_time) < 10.0:
+    if not can_rcv_valid:
       self.can_rcv_cum_timeout_counter += 1
 
     if can_rcv_valid and REPLAY:
