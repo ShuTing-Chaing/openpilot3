@@ -226,10 +226,10 @@ void ignition_can_hook(CANPacket_t *to_push) {
     }
 
     // Mazda Gen1 engine RPM based ignition (ENGINE_DATA, 0x202, 100Hz on bus 0)
-    // RPM in byte[0]:byte[1], factor 0.25, engine running when > 0
+    // Speed in byte[2]:byte[3], factor 0.01, engine running when > 0
     if ((addr == 0x202) && (len == 8)) {
-      int rpm_raw = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
-      if (rpm_raw > 200) {  // ~50 rpm threshold to avoid noise
+      int speed_raw = (GET_BYTE(to_push, 2) << 8) | GET_BYTE(to_push, 3);
+      if (speed_raw > 5) {  // > 0.05 km/h threshold to avoid noise
         ignition_can = true;
         ignition_can_cnt = 0U;
       }
@@ -250,10 +250,10 @@ void ignition_can_hook(CANPacket_t *to_push) {
     }
 
     // Mazda Gen2/Gen3 engine RPM based ignition (ENGINE_DATA, 0x202, 100Hz on bus 2 / CAM)
-    // RPM in byte[0]:byte[1], factor 0.25, engine running when > 0
+    // Speed in byte[2]:byte[3], factor 0.01, engine running when > 0
     if ((addr == 0x202) && (len == 8)) {
-      int rpm_raw = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
-      if (rpm_raw > 200) {  // ~50 rpm threshold to avoid noise
+      int speed_raw = (GET_BYTE(to_push, 2) << 8) | GET_BYTE(to_push, 3);
+      if (speed_raw > 5) {  // > 0.05 km/h threshold to avoid noise
         ignition_can = true;
         ignition_can_cnt = 0U;
       }
