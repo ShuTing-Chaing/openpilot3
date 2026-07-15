@@ -614,8 +614,8 @@ void pandad_main_thread(std::vector<std::string> serials) {
 
     std::vector<std::thread> threads;
 
-    threads.emplace_back(panda_state_thread, pandas, getenv("STARTED") != nullptr);
-    //threads.emplace_back(panda_state_thread, pandas, true);
+    //threads.emplace_back(panda_state_thread, pandas, getenv("STARTED") != nullptr);
+    threads.emplace_back(panda_state_thread, pandas, true);
     threads.emplace_back(peripheral_control_thread, pandas[0], getenv("NO_FAN_CONTROL") != nullptr);
 
     threads.emplace_back(can_send_thread, pandas, getenv("FAKESEND") != nullptr);
