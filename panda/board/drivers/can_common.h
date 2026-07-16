@@ -34,9 +34,6 @@ extern bool can_loopback;
 bool ignition_can = false;
 uint32_t ignition_can_cnt = 0U;
 
-// Mazda 0x202 RPM-based ignition timeout
-uint32_t mazda_ignition_rpm_cnt = 0U;
-
 #define ALL_CAN_SILENT 0xFF
 #define ALL_CAN_LIVE 0
 
@@ -228,31 +225,11 @@ void ignition_can_hook(CANPacket_t *to_push) {
       ignition_can_cnt = 0U;
     }
 
-    // Mazda engine RPM based ignition (0x202, 100Hz)
-    if ((addr == 0x202) && (len == 8)) {
-      int rpm_raw = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
-      mazda_ignition_rpm_cnt = 0U;
-      if (rpm_raw > 200) {  // > 200 RPM = engine running
-        ignition_can = true;
-        ignition_can_cnt = 0U;
-      }
-    }
-
   } else if (bus == 1) {
     // Mazda 2019 exception
     if ((addr == 0x274) && (len == 8)) {
       ignition_can = (GET_BYTE(to_push, 5) & 0x4U) != 0U;
       ignition_can_cnt = 0U;
-    }
-
-    // Mazda engine RPM based ignition (0x202, 100Hz) - bus 1 redundancy
-    if ((addr == 0x202) && (len == 8)) {
-      int rpm_raw = (GET_BYTE(to_push, 0) << 8) | GET_BYTE(to_push, 1);
-      mazda_ignition_rpm_cnt = 0U;
-      if (rpm_raw > 200) {  // > 200 RPM = engine running
-        ignition_can = true;
-        ignition_can_cnt = 0U;
-      }
     }
   } else if (bus == 2) {
     // GM exception, SDGM cars have this message on bus 2
@@ -261,14 +238,7 @@ void ignition_can_hook(CANPacket_t *to_push) {
       ignition_can = (GET_BYTE(to_push, 0) & 0x2U) != 0U;
       ignition_can_cnt = 0U;
     }
-
   }
-
-  // Mazda 0x202 RPM timeout: clear ignition_can if no 0x202 seen for ~3s
-  if (mazda_ignition_rpm_cnt > 3U) {
-    ignition_can = false;
-  }
-  mazda_ignition_rpm_cnt++;
 }
 
 bool can_tx_check_min_slots_free(uint32_t min) {
