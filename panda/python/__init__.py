@@ -586,7 +586,7 @@ class Panda:
     return bytes(part_1 + part_2)
 
   def get_type(self):
-    return Panda.HW_TYPE_TRES
+    return bytearray(b'\x09')
   # Returns tuple with health packet version and CAN packet/USB packet version
   def get_packets_versions(self):
     dat = self._handle.controlRead(Panda.REQUEST_IN, 0xdd, 0, 0, 3)
