@@ -30,7 +30,7 @@ function set_lite_hw() {
     output=$(i2cget -y 0 0x10 0x00 2>/dev/null)
     if [ -z "$output" ]; then
       echo "C3 Lite hardware detected"
-      export LITE=1
+      #export LITE=1
       echo "1" > /tmp/lite_hw
     fi
   fi
@@ -69,7 +69,7 @@ function agnos_init {
           # comma 3 keeps its stock 15.1 bootloaders: comma's 16 abl has a board-id
           # check that rejects comma 3 ("Unsupported firmware detected"). It still gets
           # the IQ boot (comma_tici.dtb) + IQ.OS 3.4 system via this hybrid manifest.
-          MANIFEST="$DIR/system/hardware/tici/agnos_tici_15_1.json"
+          MANIFEST="$DIR/system/hardware/tici/agnos.json"
           ;;
       esac
     fi
