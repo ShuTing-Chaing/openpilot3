@@ -67,7 +67,7 @@
   },
   {
     "name": "system",
-    "url": "https://www.dropbox.com/scl/fi/8fd3w7hbhsyq146kqqdab/system8.img.xz?rlkey=5zt15mtuehdlj8ncj6pwn7zjy&st=j6tr4d47&dl=1",
+    "url": "https://starpilot-system-1310742136.cos.ap-guangzhou.myqcloud.com/system8.img.xz",
     "hash": "4c01245932068aedfceb41cb1aab1f7f044f6659aa2fe2de558f99e2d3aa5793",
     "hash_raw": "4c01245932068aedfceb41cb1aab1f7f044f6659aa2fe2de558f99e2d3aa5793",
     "size": 5368709120,
