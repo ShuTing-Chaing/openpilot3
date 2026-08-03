@@ -8,7 +8,7 @@ function agnos_init {
   # TODO: move this to agnos
   sudo rm -f /data/etc/NetworkManager/system-connections/*.nmmeta
   rm -f /data/scons_cache/config.lock
-
+  echo 0 | sudo tee /sys/kernel/debug/dri/0/debug/panic > /dev/null || true
   # set success flag for current boot slot
   sudo abctl --set_success
 
