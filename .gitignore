@@ -104,8 +104,3 @@ Pipfile
 # Ignore all local history of files
 .history
 .ionide
-
-# Device-local and development private keys
-.pyarmor.ikey
-tools/ssh/id_rsa
-body/certs/debug
