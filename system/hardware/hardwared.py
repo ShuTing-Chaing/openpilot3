@@ -382,6 +382,7 @@ def hardware_thread(end_event, hw_queue) -> None:
 
     if should_start:
       off_ts = None
+      print("off_ts was cleared", onroad_conditions)
       if started_ts is None:
         started_ts = time.monotonic()
         started_seen = True
@@ -399,6 +400,7 @@ def hardware_thread(end_event, hw_queue) -> None:
       started_ts = None
       if off_ts is None:
         off_ts = time.monotonic()
+        print("off_ts was set", onroad_conditions)
 
     # Offroad power monitoring
     voltage = None if peripheralState.pandaType == log.PandaState.PandaType.unknown else peripheralState.voltage
