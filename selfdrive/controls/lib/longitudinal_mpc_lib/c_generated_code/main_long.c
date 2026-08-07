@@ -130,8 +130,10 @@ int main()
     p[1] = 1.2;
     p[2] = 0.0;
     p[3] = 0.0;
-    p[4] = 3.2;
-    p[5] = 0.75;
+    p[4] = jhpnnagiieahaaaadaaaaaaaaaaaaaaaaaegfaaaaaaaaaaaaaaabaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaegpcaaaaaaaaaaaaaanaaaaaaamgfgbgegpfehpfggpgmgmgpghh;
+    p[5] = 0.8;
+    p[6] = jhpnnagiieahaaaadaaaaaaaaaaaaaaaaaegfaaaaaaaaaaaaaaabaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaegpcaaaaaaaaaaaaaanaaaaaaadgpgngggpgchehpfcgchbglgfg;
+    p[7] = jhpnnagiieahaaaadaaaaaaaaaaaaaaaaaegfaaaaaaaaaaaaaaabaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabaaaaaaaaaaaaaaaegpcaaaaaaaaaaaaaanaaaaaaadhehpgahpfegjgdhehbgogdgfg;
 
     for (int ii = 0; ii <= N; ii++)
     {

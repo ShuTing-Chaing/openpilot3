@@ -14,6 +14,8 @@ model2.png
 a.out
 .hypothesis
 
+/docs_site/
+
 *.dylib
 *.DSYM
 *.d
@@ -34,6 +36,7 @@ a.out
 *.pyxbldc
 *.vcd
 *.qm
+*_pyx.cpp
 config.json
 clcache
 compile_commands.json
@@ -53,10 +56,6 @@ selfdrive/test/longitudinal_maneuvers/out
 selfdrive/car/tests/cars_dump
 system/camerad/camerad
 system/camerad/test/ae_gray_test
-selfdrive/modeld/_modeld
-selfdrive/modeld/_navmodeld
-selfdrive/modeld/_dmonitoringmodeld
-/src/
 
 notebooks
 hyperthneed
@@ -78,6 +77,7 @@ selfdrive/modeld/models/*.thneed
 selfdrive/modeld/models/*.pkl
 
 *.bz2
+*.zst
 
 build/
 
@@ -104,3 +104,4 @@ Pipfile
 # Ignore all local history of files
 .history
 .ionide
+.vs

@@ -1,18 +1,20 @@
 import os
+import operator
+import importlib.util
 
 from cereal import car
 from openpilot.common.params import Params
 from openpilot.system.hardware import PC, TICI
-from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata, ModelCapabilities
 from openpilot.system.manager.process import PythonProcess, NativeProcess, DaemonProcess
-from openpilot.system.mapd_manager import MAPD_PATH, COMMON_DIR
-from openpilot.system.manager.sunnylink import sunnylink_need_register, sunnylink_ready
+
 from openpilot.common.basedir import BASEDIR
+
+FLASK_AVAILABLE = importlib.util.find_spec("flask") is not None
 
 WEBCAM = os.getenv("USE_WEBCAM") is not None
 
 def driverview(started: bool, params: Params, CP: car.CarParams) -> bool:
-  return started or params.get_bool("IsDriverViewEnabled") or params.get_bool("IsExternalViewEnabled")
+  return started or params.get_bool("IsDriverViewEnabled")
 
 def notcar(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started and CP.notCar
@@ -20,7 +22,7 @@ def notcar(started: bool, params: Params, CP: car.CarParams) -> bool:
 def iscar(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started and not CP.notCar
 
-def logging(started, params, CP: car.CarParams) -> bool:
+def logging(started: bool, params: Params, CP: car.CarParams) -> bool:
   run = ((not CP.notCar) and not params.get_bool("DisableLogging")) and params.get_bool("EnableLogging")
   return started and run
 
@@ -31,107 +33,115 @@ def logging_with_bridge(started, params, CP: car.CarParams) -> bool:
 def ublox_available() -> bool:
   return os.path.exists('/dev/ttyHS0') and not os.path.exists('/persist/comma/use-quectel-gps')
 
-def ublox(started, params, CP: car.CarParams) -> bool:
+def ublox(started: bool, params: Params, CP: car.CarParams) -> bool:
   use_ublox = ublox_available()
   if use_ublox != params.get_bool("UbloxAvailable"):
     params.put_bool("UbloxAvailable", use_ublox)
   return started and use_ublox
 
-def qcomgps(started, params, CP: car.CarParams) -> bool:
+def joystick(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return started and params.get_bool("JoystickDebugMode")
+
+def not_joystick(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return started and not params.get_bool("JoystickDebugMode")
+
+def long_maneuver(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return started and params.get_bool("LongitudinalManeuverMode")
+
+def not_long_maneuver(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return started and not params.get_bool("LongitudinalManeuverMode")
+
+def qcomgps(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started and not ublox_available()
 
-def always_run(started, params, CP: car.CarParams) -> bool:
+def always_run(started: bool, params: Params, CP: car.CarParams) -> bool:
   return True
 
-def only_onroad(started: bool, params, CP: car.CarParams) -> bool:
+def only_onroad(started: bool, params: Params, CP: car.CarParams) -> bool:
   return started
 
-def only_offroad(started, params, CP: car.CarParams) -> bool:
+def only_offroad(started: bool, params: Params, CP: car.CarParams) -> bool:
   return not started
 
-def model_use_nav(started, params, CP: car.CarParams) -> bool:
-  custom_model_metadata = CustomModelMetadata(params=params, init_only=True)
-  return started and custom_model_metadata.valid and custom_model_metadata.capabilities & ModelCapabilities.NoO
+def enable_updated(started: bool, params: Params, CP: car.CarParams) -> bool:
+  return not started and params.get_bool("SoftwareMenu")
 
-def sunnylink_ready_shim(started, params, CP: car.CarParams) -> bool:
-  """Shim for sunnylink_ready to match the process manager signature."""
-  return sunnylink_ready(params)
+def check_fleet(started, params, CP: car.CarParams) -> bool:
+  return FLASK_AVAILABLE
 
-def sunnylink_need_register_shim(started, params, CP: car.CarParams) -> bool:
-  """Shim for sunnylink_need_register to match the process manager signature."""
-  return sunnylink_need_register(params)
+def or_(*fns):
+  return lambda *args: operator.or_(*(fn(*args) for fn in fns))
+
+def and_(*fns):
+  return lambda *args: operator.and_(*(fn(*args) for fn in fns))
+
+def enable_dm(started, params, CP: car.CarParams) -> bool:
+  return (started or params.get_bool("IsDriverViewEnabled")) and params.get_int("DisableDM") == 0
+
+def enable_connect(started, params, CP: car.CarParams) -> bool:
+  return params.get_int("EnableConnect") > 0
 
 procs = [
   DaemonProcess("manage_athenad", "system.athena.manage_athenad", "AthenadPid"),
 
-  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview),
+  NativeProcess("loggerd", "system/loggerd", ["./loggerd"], logging),
+  NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad),
+  NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar),
+  PythonProcess("logmessaged", "system.logmessaged", always_run),
+
+  NativeProcess("camerad", "system/camerad", ["./camerad"], driverview, enabled=not WEBCAM),
+  PythonProcess("webcamerad", "tools.webcam.camerad", driverview, enabled=WEBCAM),
   NativeProcess("logcatd", "system/logcatd", ["./logcatd"], only_onroad),
   NativeProcess("proclogd", "system/proclogd", ["./proclogd"], only_onroad),
-  PythonProcess("logmessaged", "system.logmessaged", always_run),
   PythonProcess("micd", "system.micd", iscar),
   PythonProcess("timed", "system.timed", always_run, enabled=not PC),
 
-  PythonProcess("dmonitoringmodeld", "selfdrive.modeld.dmonitoringmodeld", driverview, enabled=(not PC or WEBCAM)),
-  NativeProcess("encoderd", "system/loggerd", ["./encoderd"], only_onroad),
-  NativeProcess("stream_encoderd", "system/loggerd", ["./encoderd", "--stream"], notcar),
-  NativeProcess("loggerd", "system/loggerd", ["./loggerd"], logging),
-  NativeProcess("modeld", "selfdrive/modeld", ["./modeld"], only_onroad),
-  NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], model_use_nav),
-  PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", model_use_nav),
+  # TODO: Make python process once TG allows opening QCOM from child pro
+  # https://github.com/tinygrad/tinygrad/blob/ac9c96dae1656dc220ee4acc39cef4dd449aa850/tinygrad/device.py#L26
+  NativeProcess("modeld", "selfdrive/modeld", ["./modeld.py"], only_onroad),
+  NativeProcess("dmonitoringmodeld", "selfdrive/modeld", ["./dmonitoringmodeld.py"], enable_dm, enabled=(WEBCAM or not PC)),
+  #NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], only_onroad),
+  #NativeProcess("mapsd", "selfdrive/navd", ["./mapsd"], always_run),
+  #PythonProcess("navmodeld", "selfdrive.modeld.navmodeld", only_onroad),
   NativeProcess("sensord", "system/sensord", ["./sensord"], only_onroad, enabled=not PC),
   NativeProcess("ui", "selfdrive/ui", ["./ui"], always_run, watchdog_max_dt=(5 if not PC else None)),
   PythonProcess("soundd", "selfdrive.ui.soundd", only_onroad),
   NativeProcess("locationd", "selfdrive/locationd", ["./locationd"], only_onroad),
-  NativeProcess("pandad", "selfdrive/pandad", ["./pandad"], always_run, enabled=False),
+  #PythonProcess("locationd", "selfdrive.locationd.locationd", only_onroad),
+  NativeProcess("_pandad", "selfdrive/pandad", ["./pandad"], always_run, enabled=False),
   PythonProcess("calibrationd", "selfdrive.locationd.calibrationd", only_onroad),
   PythonProcess("torqued", "selfdrive.locationd.torqued", only_onroad),
-  PythonProcess("controlsd", "selfdrive.controls.controlsd", only_onroad),
+  PythonProcess("controlsd", "selfdrive.controls.controlsd", and_(not_joystick, iscar)),
+  PythonProcess("joystickd", "tools.joystick.joystickd", or_(joystick, notcar)),
+  PythonProcess("selfdrived", "selfdrive.selfdrived.selfdrived", only_onroad),
   PythonProcess("card", "selfdrive.car.card", only_onroad),
   PythonProcess("deleter", "system.loggerd.deleter", always_run),
-  PythonProcess("dmonitoringd", "selfdrive.monitoring.dmonitoringd", driverview, enabled=(not PC or WEBCAM)),
-  #PythonProcess("qcomgpsd", "system.qcomgpsd.qcomgpsd", qcomgps, enabled=TICI),
-  #PythonProcess("ugpsd", "system.ugpsd", only_onroad, enabled=TICI),
-  #PythonProcess("navd", "selfdrive.navd.navd", only_onroad),
+  PythonProcess("dmonitoringd", "selfdrive.monitoring.dmonitoringd", enable_dm, enabled=(WEBCAM or not PC)),
+  PythonProcess("qcomgpsd", "system.qcomgpsd.qcomgpsd", qcomgps, enabled=TICI),
+  PythonProcess("navd", "selfdrive.navd.navd", only_onroad),
   PythonProcess("pandad", "selfdrive.pandad.pandad", always_run),
   PythonProcess("paramsd", "selfdrive.locationd.paramsd", only_onroad),
+  PythonProcess("lagd", "selfdrive.locationd.lagd", only_onroad),
   NativeProcess("ubloxd", "system/ubloxd", ["./ubloxd"], ublox, enabled=TICI),
   PythonProcess("pigeond", "system.ubloxd.pigeond", ublox, enabled=TICI),
-  PythonProcess("plannerd", "selfdrive.controls.plannerd", only_onroad),
+  PythonProcess("plannerd", "selfdrive.controls.plannerd", not_long_maneuver),
+  PythonProcess("maneuversd", "tools.longitudinal_maneuvers.maneuversd", long_maneuver),
   PythonProcess("radard", "selfdrive.controls.radard", only_onroad),
   PythonProcess("hardwared", "system.hardware.hardwared", always_run),
   PythonProcess("tombstoned", "system.tombstoned", always_run, enabled=not PC),
-  # PythonProcess("updated", "system.updated.updated", only_offroad, enabled=not PC),
-  PythonProcess("uploader", "system.loggerd.uploader", always_run),
-  #PythonProcess("statsd", "system.statsd", always_run),
-
-  # PFEIFER - MAPD {{
-  NativeProcess("mapd", COMMON_DIR, [MAPD_PATH], always_run, enabled=not PC),
-  PythonProcess("mapd_manager", "system.mapd_manager", always_run, enabled=not PC),
-  # }} PFEIFER - MAPD
-
-  PythonProcess("otisserv", "selfdrive.navd.otisserv", always_run),
-  PythonProcess("fleet_manager", "system.fleetmanager.fleet_manager", always_run, enabled=not PC),
+  # PythonProcess("updated", "system.updated.updated", enable_updated, enabled=not PC),
+  PythonProcess("uploader", "system.loggerd.uploader", enable_connect),
+  PythonProcess("statsd", "system.statsd", always_run),
 
   # debug procs
-  NativeProcess("bridge", "cereal/messaging", ["./bridge"], logging_with_bridge), #notcar),
+  NativeProcess("bridge", "cereal/messaging", ["./bridge"], logging_with_bridge),
   PythonProcess("webrtcd", "system.webrtc.webrtcd", notcar),
   PythonProcess("webjoystick", "tools.bodyteleop.web", notcar),
+  PythonProcess("joystick", "tools.joystick.joystick_control", and_(joystick, iscar)),
 
-  # Sunnylink <3
-  DaemonProcess("manage_sunnylinkd", "system.athena.manage_sunnylinkd", "SunnylinkdPid"),
-  #PythonProcess("sunnylink_registration", "system.manager.sunnylink", sunnylink_need_register_shim),
+  #PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet, enabled=not PC),
+  #PythonProcess("fleet_manager", "selfdrive.frogpilot.fleetmanager.fleet_manager", check_fleet),
+  PythonProcess("carrot_man", "selfdrive.carrot.carrot_man", always_run),#, enabled=not PC),
 ]
-
-if os.path.exists("../loggerd/sunnylink_uploader.py"):
-  procs += [
-    PythonProcess("sunnylink_uploader", "system.loggerd.sunnylink_uploader", sunnylink_ready_shim),
-  ]
-
-if os.path.exists("./gitlab_runner.sh") and not PC:
-  # Only devs!
-  procs += [
-    NativeProcess("gitlab_runner_start", "system/manager", ["./gitlab_runner.sh", "start"], only_offroad, sigkill=False),
-    NativeProcess("gitlab_runner_stop", "system/manager", ["./gitlab_runner.sh", "stop"], only_onroad, sigkill=False)
-  ]
 
 managed_processes = {p.name: p for p in procs}

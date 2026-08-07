@@ -3,4 +3,4 @@ moc_*
 
 mapsd
 map_renderer
-libmap_renderer.so
+libmaprender.so

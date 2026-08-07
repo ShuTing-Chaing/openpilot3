@@ -8,8 +8,6 @@ import cereal.messaging as messaging
 from cereal import car, log
 from openpilot.common.params import Params
 from openpilot.common.realtime import config_realtime_process, DT_MDL
-from openpilot.common.numpy_fast import clip
-from openpilot.selfdrive.car.chrysler.values import ChryslerFlagsSP
 from openpilot.selfdrive.locationd.models.car_kf import CarKalman, ObservationKind, States
 from openpilot.selfdrive.locationd.models.constants import GENERATED_DIR
 from openpilot.common.swaglog import cloudlog
@@ -45,7 +43,6 @@ class ParamsLearner:
     self.yaw_rate_std = 0.0
     self.roll = 0.0
     self.steering_angle = 0.0
-    self.roll_valid = False
 
   def handle_log(self, t, which, msg):
     if which == 'liveLocationKalman':
@@ -54,29 +51,24 @@ class ParamsLearner:
 
       localizer_roll = msg.orientationNED.value[0]
       localizer_roll_std = np.radians(1) if np.isnan(msg.orientationNED.std[0]) else msg.orientationNED.std[0]
-      self.roll_valid = (localizer_roll_std < ROLL_STD_MAX) and (ROLL_MIN < localizer_roll < ROLL_MAX) and msg.sensorsOK
-      if self.roll_valid:
+      roll_valid = (localizer_roll_std < ROLL_STD_MAX) and (ROLL_MIN < localizer_roll < ROLL_MAX) and msg.sensorsOK
+      if roll_valid:
         roll = localizer_roll
         # Experimentally found multiplier of 2 to be best trade-off between stability and accuracy or similar?
-        roll_std = 2 * localizer_roll_std
+        #roll_std = 2 * localizer_roll_std
+        roll_std = 3 * localizer_roll_std
       else:
         # This is done to bound the road roll estimate when localizer values are invalid
         roll = 0.0
         roll_std = np.radians(10.0)
-      self.roll = clip(roll, self.roll - ROLL_MAX_DELTA, self.roll + ROLL_MAX_DELTA)
-
-      yaw_rate_valid = msg.angularVelocityCalibrated.valid
-      yaw_rate_valid = yaw_rate_valid and 0 < self.yaw_rate_std < 10  # rad/s
-      yaw_rate_valid = yaw_rate_valid and abs(self.yaw_rate) < 1  # rad/s
+      self.roll = np.clip(roll, self.roll - ROLL_MAX_DELTA, self.roll + ROLL_MAX_DELTA)
 
       if self.active:
         if msg.posenetOK:
-
-          if yaw_rate_valid:
-            self.kf.predict_and_observe(t,
-                                        ObservationKind.ROAD_FRAME_YAW_RATE,
-                                        np.array([[-self.yaw_rate]]),
-                                        np.array([np.atleast_2d(self.yaw_rate_std**2)]))
+          self.kf.predict_and_observe(t,
+                                      ObservationKind.ROAD_FRAME_YAW_RATE,
+                                      np.array([[-self.yaw_rate]]),
+                                      np.array([np.atleast_2d(self.yaw_rate_std**2)]))
 
           self.kf.predict_and_observe(t,
                                       ObservationKind.ROAD_ROLL,
@@ -171,7 +163,7 @@ def main():
 
   pInitial = None
   if DEBUG:
-    pInitial = np.array(params['filterState']['std']) if 'filterState' in params else None
+    pInitial = np.array(params['debugFilterState']['std']) if 'debugFilterState' in params else None
 
   learner = ParamsLearner(CP, params['steerRatio'], params['stiffnessFactor'], math.radians(params['angleOffsetAverageDeg']), pInitial)
   angle_offset_average = params['angleOffsetAverageDeg']
@@ -180,6 +172,8 @@ def main():
   avg_offset_valid = True
   total_offset_valid = True
   roll_valid = True
+  params_memory = Params("/dev/shm/params")
+  params_memory.remove("LastGPSPosition")
 
   while True:
     sm.update()
@@ -190,6 +184,13 @@ def main():
           learner.handle_log(t, which, sm[which])
 
     if sm.updated['liveLocationKalman']:
+      location = sm['liveLocationKalman']
+      if (location.status == log.LiveLocationKalman.Status.valid) and location.positionGeodetic.valid and location.gpsOK:
+        bearing = math.degrees(location.calibratedOrientationNED.value[2])
+        lat = location.positionGeodetic.value[0]
+        lon = location.positionGeodetic.value[1]
+        params_memory.put("LastGPSPosition", json.dumps({"latitude": lat, "longitude": lon, "bearing": bearing}))
+        
       x = learner.kf.x
       P = np.sqrt(learner.kf.P.diagonal())
       if not all(map(math.isfinite, x)):
@@ -197,11 +198,11 @@ def main():
         learner = ParamsLearner(CP, CP.steerRatio, 1.0, 0.0)
         x = learner.kf.x
 
-      angle_offset_average = clip(math.degrees(x[States.ANGLE_OFFSET].item()),
+      angle_offset_average = np.clip(math.degrees(x[States.ANGLE_OFFSET].item()),
                                   angle_offset_average - MAX_ANGLE_OFFSET_DELTA, angle_offset_average + MAX_ANGLE_OFFSET_DELTA)
-      angle_offset = clip(math.degrees(x[States.ANGLE_OFFSET].item() + x[States.ANGLE_OFFSET_FAST].item()),
+      angle_offset = np.clip(math.degrees(x[States.ANGLE_OFFSET].item() + x[States.ANGLE_OFFSET_FAST].item()),
                           angle_offset - MAX_ANGLE_OFFSET_DELTA, angle_offset + MAX_ANGLE_OFFSET_DELTA)
-      roll = clip(float(x[States.ROAD_ROLL].item()), roll - ROLL_MAX_DELTA, roll + ROLL_MAX_DELTA)
+      roll = np.clip(float(x[States.ROAD_ROLL].item()), roll - ROLL_MAX_DELTA, roll + ROLL_MAX_DELTA)
       roll_std = float(P[States.ROAD_ROLL].item())
       if learner.active and learner.speed > LOW_ACTIVE_SPEED:
         # Account for the opposite signs of the yaw rates
@@ -219,30 +220,30 @@ def main():
       liveParameters.posenetValid = True
       liveParameters.sensorValid = sensors_valid
       liveParameters.steerRatio = float(x[States.STEER_RATIO].item())
+      liveParameters.steerRatioValid = min_sr <= liveParameters.steerRatio <= max_sr
       liveParameters.stiffnessFactor = float(x[States.STIFFNESS].item())
-      liveParameters.roll = roll
-      liveParameters.angleOffsetAverageDeg = angle_offset_average
-      liveParameters.angleOffsetDeg = angle_offset
+      liveParameters.stiffnessFactorValid = 0.2 <= liveParameters.stiffnessFactor <= 5.0
+      liveParameters.roll = float(roll)
+      liveParameters.angleOffsetAverageDeg = float(angle_offset_average)
+      liveParameters.angleOffsetAverageValid = bool(avg_offset_valid)
+      liveParameters.angleOffsetDeg = float(angle_offset)
+      liveParameters.angleOffsetValid = bool(total_offset_valid)
       liveParameters.valid = all((
-        avg_offset_valid,
-        total_offset_valid,
+        liveParameters.angleOffsetAverageValid,
+        liveParameters.angleOffsetValid ,
         roll_valid,
         roll_std < ROLL_STD_MAX,
-        0.2 <= liveParameters.stiffnessFactor <= 5.0,
-        min_sr <= liveParameters.steerRatio <= max_sr,
+        liveParameters.stiffnessFactorValid,
+        liveParameters.steerRatioValid,
       ))
-      if (CP.carName == "chrysler" and CP.spFlags & ChryslerFlagsSP.SP_RAM_HD_PARAMSD_IGNORE) or \
-         (CP.carName == "subaru" and CP.lateralTuning.which() == 'torque'):
-        liveParameters.valid = True
       liveParameters.steerRatioStd = float(P[States.STEER_RATIO].item())
       liveParameters.stiffnessFactorStd = float(P[States.STIFFNESS].item())
       liveParameters.angleOffsetAverageStd = float(P[States.ANGLE_OFFSET].item())
       liveParameters.angleOffsetFastStd = float(P[States.ANGLE_OFFSET_FAST].item())
       if DEBUG:
-        liveParameters.filterState = log.LiveLocationKalman.Measurement.new_message()
-        liveParameters.filterState.value = x.tolist()
-        liveParameters.filterState.std = P.tolist()
-        liveParameters.filterState.valid = True
+        liveParameters.debugFilterState = log.LiveParametersData.FilterState.new_message()
+        liveParameters.debugFilterState.value = x.tolist()
+        liveParameters.debugFilterState.std = P.tolist()
 
       msg.valid = sm.all_checks()
 

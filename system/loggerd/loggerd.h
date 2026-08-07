@@ -5,7 +5,6 @@
 #include "cereal/messaging/messaging.h"
 #include "cereal/services.h"
 #include "msgq/visionipc/visionipc_client.h"
-#include "system/camerad/cameras/camera_common.h"
 #include "system/hardware/hw.h"
 #include "common/params.h"
 #include "common/swaglog.h"
@@ -36,6 +35,7 @@ public:
   const char *thumbnail_name = NULL;
   const char *filename = NULL;
   bool record = true;
+  bool include_audio = false;
   int frame_width = -1;
   int frame_height = -1;
   int fps = MAIN_FPS;
@@ -51,22 +51,22 @@ class LogCameraInfo {
 public:
   const char *thread_name;
   int fps = MAIN_FPS;
-  CameraType type;
   VisionStreamType stream_type;
   std::vector<EncoderInfo> encoder_infos;
 };
 
 const EncoderInfo main_road_encoder_info = {
   .publish_name = "roadEncodeData",
+  .thumbnail_name = "thumbnail",
   .filename = "fcamera.hevc",
-  .record = Params().getBool("RecordHighRes"),
+  .record = Params().getInt("RecordRoadCam") > 0,
   INIT_ENCODE_FUNCTIONS(RoadEncode),
 };
 
 const EncoderInfo main_wide_road_encoder_info = {
   .publish_name = "wideRoadEncodeData",
   .filename = "ecamera.hevc",
-  .record = Params().getBool("RecordHighRes"),
+  .record = Params().getInt("RecordRoadCam") > 1,
   INIT_ENCODE_FUNCTIONS(WideRoadEncode),
 };
 
@@ -109,47 +109,42 @@ const EncoderInfo qcam_encoder_info = {
   .encode_type = cereal::EncodeIndex::Type::QCAMERA_H264,
   .frame_width = 526,
   .frame_height = 330,
+  .include_audio = Params().getBool("RecordAudio"),
   INIT_ENCODE_FUNCTIONS(QRoadEncode),
 };
 
 const LogCameraInfo road_camera_info{
   .thread_name = "road_cam_encoder",
-  .type = RoadCam,
   .stream_type = VISION_STREAM_ROAD,
   .encoder_infos = {main_road_encoder_info, qcam_encoder_info}
 };
 
 const LogCameraInfo wide_road_camera_info{
   .thread_name = "wide_road_cam_encoder",
-  .type = WideRoadCam,
   .stream_type = VISION_STREAM_WIDE_ROAD,
   .encoder_infos = {main_wide_road_encoder_info}
 };
 
 const LogCameraInfo driver_camera_info{
   .thread_name = "driver_cam_encoder",
-  .type = DriverCam,
   .stream_type = VISION_STREAM_DRIVER,
   .encoder_infos = {main_driver_encoder_info}
 };
 
 const LogCameraInfo stream_road_camera_info{
   .thread_name = "road_cam_encoder",
-  .type = RoadCam,
   .stream_type = VISION_STREAM_ROAD,
   .encoder_infos = {stream_road_encoder_info}
 };
 
 const LogCameraInfo stream_wide_road_camera_info{
   .thread_name = "wide_road_cam_encoder",
-  .type = WideRoadCam,
   .stream_type = VISION_STREAM_WIDE_ROAD,
   .encoder_infos = {stream_wide_road_encoder_info}
 };
 
 const LogCameraInfo stream_driver_camera_info{
   .thread_name = "driver_cam_encoder",
-  .type = DriverCam,
   .stream_type = VISION_STREAM_DRIVER,
   .encoder_infos = {stream_driver_encoder_info}
 };

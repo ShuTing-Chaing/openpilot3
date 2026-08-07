@@ -1,4 +1,5 @@
 import os
+import platform
 from pathlib import Path
 
 from openpilot.system.hardware import PC
@@ -58,22 +59,7 @@ class Paths:
       return "/tmp/.comma"
 
   @staticmethod
-  def community_crash_root() -> str:
-    if PC:
-      return str(Path(Paths.comma_home()) / "community" / "crashes")
-    else:
-      return "/data/community/crashes"
-
-  @staticmethod
-  def model_root() -> str:
-    if PC:
-      return str(Path(Paths.comma_home()) / "media" / "0" / "models")
-    else:
-      return "/data/media/0/models"
-
-  @staticmethod
-  def mapd_root() -> str:
-    if PC:
-      return str(Path(Paths.comma_home()) / "media" / "0" / "osm")
-    else:
-      return "/data/media/0/osm"
+  def shm_path() -> str:
+    if PC and platform.system() == "Darwin":
+      return "/tmp"  # This is not really shared memory on macOS, but it's the closest we can get
+    return "/dev/shm"

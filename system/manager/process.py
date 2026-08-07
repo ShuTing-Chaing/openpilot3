@@ -8,7 +8,7 @@ from collections.abc import Callable, ValuesView
 from abc import ABC, abstractmethod
 from multiprocessing import Process
 
-from openpilot.common.threadname import setthreadname
+from setproctitle import setproctitle
 
 from cereal import car, log
 import cereal.messaging as messaging
@@ -16,8 +16,9 @@ import openpilot.system.sentry as sentry
 from openpilot.common.basedir import BASEDIR
 from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
+from openpilot.system.hardware.hw import Paths
 
-WATCHDOG_FN = "/dev/shm/wd_"
+WATCHDOG_FN = f"{Paths.shm_path()}/wd_"
 ENABLE_WATCHDOG = os.getenv("NO_WATCHDOG") is None
 
 
@@ -27,10 +28,10 @@ def launcher(proc: str, name: str) -> None:
     mod = importlib.import_module(proc)
 
     # rename the process
-    setthreadname(proc)
+    setproctitle(proc)
 
     # create new context since we forked
-    messaging.context = messaging.Context()
+    messaging.reset_context()
 
     # add daemon name tag to logs
     cloudlog.bind(daemon=name)
@@ -73,7 +74,6 @@ class ManagerProcess(ABC):
 
   last_watchdog_time = 0
   watchdog_max_dt: int | None = None
-  always_watchdog = False
   watchdog_seen = False
   shutting_down = False
 
@@ -103,10 +103,8 @@ class ManagerProcess(ABC):
 
     dt = time.monotonic() - self.last_watchdog_time / 1e9
 
-    always_watchdog = self.always_watchdog and not started and self.proc.exitcode is not None
-
     if dt > self.watchdog_max_dt:
-      if (self.watchdog_seen or always_watchdog) and ENABLE_WATCHDOG:
+      if self.watchdog_seen and ENABLE_WATCHDOG:
         cloudlog.error(f"Watchdog timeout for {self.name} (exitcode {self.proc.exitcode}) restarting ({started=})")
         self.restart()
     else:
@@ -171,7 +169,7 @@ class ManagerProcess(ABC):
 
 
 class NativeProcess(ManagerProcess):
-  def __init__(self, name, cwd, cmdline, should_run, enabled=True, sigkill=False, watchdog_max_dt=None, always_watchdog=False):
+  def __init__(self, name, cwd, cmdline, should_run, enabled=True, sigkill=False, watchdog_max_dt=None):
     self.name = name
     self.cwd = cwd
     self.cmdline = cmdline
@@ -180,7 +178,6 @@ class NativeProcess(ManagerProcess):
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
     self.launcher = nativelauncher
-    self.always_watchdog = always_watchdog
 
   def prepare(self) -> None:
     pass
@@ -202,7 +199,7 @@ class NativeProcess(ManagerProcess):
 
 
 class PythonProcess(ManagerProcess):
-  def __init__(self, name, module, should_run, enabled=True, sigkill=False, watchdog_max_dt=None, always_watchdog=False):
+  def __init__(self, name, module, should_run, enabled=True, sigkill=False, watchdog_max_dt=None):
     self.name = name
     self.module = module
     self.should_run = should_run
@@ -210,12 +207,14 @@ class PythonProcess(ManagerProcess):
     self.sigkill = sigkill
     self.watchdog_max_dt = watchdog_max_dt
     self.launcher = launcher
-    self.always_watchdog = always_watchdog
 
   def prepare(self) -> None:
     if self.enabled:
       cloudlog.info(f"preimporting {self.module}")
-      importlib.import_module(self.module)
+      try:
+        importlib.import_module(self.module)
+      except Exception as e:
+        print(f"failed to import {self.module}: {e}")
 
   def start(self) -> None:
     # In case we only tried a non blocking stop we need to stop it before restarting
@@ -225,8 +224,12 @@ class PythonProcess(ManagerProcess):
     if self.proc is not None:
       return
 
+    # TODO: this is just a workaround for this tinygrad check:
+    # https://github.com/tinygrad/tinygrad/blob/ac9c96dae1656dc220ee4acc39cef4dd449aa850/tinygrad/device.py#L26
+    name = self.name if "modeld" not in self.name else "MainProcess"
+
     cloudlog.info(f"starting python {self.module}")
-    self.proc = Process(name=self.name, target=self.launcher, args=(self.module, self.name))
+    self.proc = Process(name=name, target=self.launcher, args=(self.module, self.name))
     self.proc.start()
     self.watchdog_seen = False
     self.shutting_down = False

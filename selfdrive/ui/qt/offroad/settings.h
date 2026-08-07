@@ -8,7 +8,6 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QStackedWidget>
-#include <QTimer>
 #include <QWidget>
 
 #include "selfdrive/ui/ui.h"
@@ -37,21 +36,14 @@ private:
   QWidget *sidebar_widget;
   QButtonGroup *nav_btns;
   QStackedWidget *panel_widget;
-
-  struct PanelInfo {
-    QString name;
-    QWidget *widget;
-    QString icon;
-
-    PanelInfo(const QString &name, QWidget *widget, const QString &icon) : name(name), widget(widget), icon(icon) {}
-  };
 };
 
 class DevicePanel : public ListWidget {
   Q_OBJECT
 public:
   explicit DevicePanel(SettingsWindow *parent);
-  void showEvent(QShowEvent *event) override;
+private:
+  void updateLabels();
 
 signals:
   void reviewTrainingGuide();
@@ -60,22 +52,14 @@ signals:
 private slots:
   void poweroff();
   void reboot();
+  //re_Calibration
+  void calibration();
   void updateCalibDescription();
-  void onPinFileChanged(const QString &file_path);
-  void refreshPin();
   void forceoffroad();
-
-  void updateLabels();
 
 private:
   Params params;
   ButtonControl *pair_device;
-
-  ButtonControl *fleetManagerPin;
-  QString pin_title = tr("Fleet Manager PIN:") + " ";
-  QString pin = "OFF";
-  QFileSystemWatcher *fs_watch;
-
   QPushButton *offroad_btn;
 };
 
@@ -87,7 +71,6 @@ public:
 
 public slots:
   void expandToggleDescription(const QString &param);
-  void updateToggles();
 
 private slots:
   void updateState(const UIState &s);
@@ -96,9 +79,8 @@ private:
   Params params;
   std::map<std::string, ParamControl*> toggles;
   ButtonParamControl *long_personality_setting;
-  ButtonParamControl *accel_personality_setting;
 
-  ParamWatcher *param_watcher;
+  void updateToggles();
 };
 
 class SoftwarePanel : public ListWidget {
@@ -106,15 +88,14 @@ class SoftwarePanel : public ListWidget {
 public:
   explicit SoftwarePanel(QWidget* parent = nullptr);
 
-protected:
+private:
   void showEvent(QShowEvent *event) override;
-  virtual void updateLabels();
+  void updateLabels();
   void checkForUpdates();
 
   bool is_onroad = false;
 
   QLabel *onroadLbl;
-  LabelControl *currentModelLbl;
   LabelControl *versionLbl;
   ButtonControl *installBtn;
   ButtonControl *downloadBtn;
@@ -122,4 +103,57 @@ protected:
 
   Params params;
   ParamWatcher *fs_watch;
+};
+
+// Forward declaration
+class FirehosePanel;
+
+class CarrotPanel : public QWidget {
+  Q_OBJECT
+
+private:
+  QStackedLayout* main_layout = nullptr;
+  QWidget* homeScreen = nullptr;
+  int currentCarrotIndex = 0;
+
+  QWidget* homeWidget;
+  QVBoxLayout* carrotLayout;
+
+  ListWidget* cruiseToggles;
+  ListWidget* latLongToggles;
+  ListWidget* pathToggles;
+  ListWidget* dispToggles;
+  ListWidget* startToggles;
+  ListWidget* speedToggles;
+
+  void togglesCarrot(int widgetIndex);
+  void updateButtonStyles();
+
+public:
+  explicit CarrotPanel(QWidget* parent = nullptr);
+};
+
+class CValueControl : public AbstractControl {
+  Q_OBJECT
+
+public:
+  CValueControl(const QString& params, const QString& title, const QString& desc, int min, int max, int unit = 1);
+
+private slots:
+  void increaseValue();
+  void decreaseValue();
+
+private:
+  void showEvent(QShowEvent* event) override;
+  void refresh();
+  void adjustValue(int delta);
+
+  QPushButton btnplus;
+  QPushButton btnminus;
+  QLabel label;
+
+  QString m_params;
+  int m_min;
+  int m_max;
+  int m_unit;
 };

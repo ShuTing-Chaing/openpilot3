@@ -13,12 +13,8 @@ ATHENA_MGR_PID_PARAM = "AthenadPid"
 
 
 def main():
-  manage_athenad("DongleId", ATHENA_MGR_PID_PARAM, 'athenad', 'system.athena.athenad')
-
-
-def manage_athenad(dongle_id_param, pid_param, process_name, target):
   params = Params()
-  dongle_id = params.get(dongle_id_param, encoding='utf-8')
+  dongle_id = params.get("DongleId").decode('utf-8')
   build_metadata = get_build_metadata()
 
   cloudlog.bind_global(dongle_id=dongle_id,
@@ -31,16 +27,17 @@ def manage_athenad(dongle_id_param, pid_param, process_name, target):
 
   try:
     while 1:
-      cloudlog.info(f"starting {process_name} daemon")
-      proc = Process(name=process_name, target=launcher, args=(target, process_name))
+      cloudlog.info("starting athena daemon")
+      proc = Process(name='athenad', target=launcher, args=('system.athena.athenad', 'athenad'))
       proc.start()
       proc.join()
-      cloudlog.event(f"{process_name} exited", exitcode=proc.exitcode)
+      cloudlog.event("athenad exited", exitcode=proc.exitcode)
       time.sleep(5)
   except Exception:
-    cloudlog.exception(f"manage_{process_name}.exception")
+    cloudlog.exception("manage_athenad.exception")
   finally:
-    params.remove(pid_param)
+    params.remove(ATHENA_MGR_PID_PARAM)
+
 
 if __name__ == '__main__':
   main()

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import math
-from typing import Any, cast
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 from openpilot.common.conversions import Conversions
-from openpilot.common.numpy_fast import clip
+import numpy as np
 from openpilot.common.params import Params
 
 DIRECTIONS = ('left', 'right', 'straight')
@@ -22,13 +22,13 @@ class Coordinate:
   def __init__(self, latitude: float, longitude: float) -> None:
     self.latitude = latitude
     self.longitude = longitude
-    self.annotations: dict[str, float] = {}
+    self.annotations: Dict[str, float] = {}
 
   @classmethod
-  def from_mapbox_tuple(cls, t: tuple[float, float]) -> Coordinate:
+  def from_mapbox_tuple(cls, t: Tuple[float, float]) -> Coordinate:
     return cls(t[1], t[0])
 
-  def as_dict(self) -> dict[str, float]:
+  def as_dict(self) -> Dict[str, float]:
     return {'latitude': self.latitude, 'longitude': self.longitude}
 
   def __str__(self) -> str:
@@ -78,12 +78,12 @@ def minimum_distance(a: Coordinate, b: Coordinate, p: Coordinate):
 
   ap = p - a
   ab = b - a
-  t = clip(ap.dot(ab) / ab.dot(ab), 0.0, 1.0)
+  t = np.clip(ap.dot(ab) / ab.dot(ab), 0.0, 1.0)
   projection = a + ab * t
   return projection.distance_to(p)
 
 
-def distance_along_geometry(geometry: list[Coordinate], pos: Coordinate) -> float:
+def distance_along_geometry(geometry: List[Coordinate], pos: Coordinate) -> float:
   if len(geometry) <= 2:
     return geometry[0].distance_to(pos)
 
@@ -106,19 +106,19 @@ def distance_along_geometry(geometry: list[Coordinate], pos: Coordinate) -> floa
   return total_distance_closest
 
 
-def coordinate_from_param(param: str, params: Params = None) -> Coordinate | None:
+def coordinate_from_param(param: str, params: Optional[Params] = None) -> Tuple[Optional[Coordinate], Optional[str]]:
   if params is None:
     params = Params()
 
   json_str = params.get(param)
   if json_str is None:
-    return None
+    return None, None
 
   pos = json.loads(json_str)
   if 'latitude' not in pos or 'longitude' not in pos:
-    return None
-
-  return Coordinate(pos['latitude'], pos['longitude'])
+    return None, None
+  place_name = pos.get('place_name', None)
+  return Coordinate(pos['latitude'], pos['longitude']), place_name
 
 
 def string_to_direction(direction: str) -> str:
@@ -130,7 +130,7 @@ def string_to_direction(direction: str) -> str:
   return 'none'
 
 
-def maxspeed_to_ms(maxspeed: dict[str, str | float]) -> float:
+def maxspeed_to_ms(maxspeed: Dict[str, Union[str, float]]) -> float:
   unit = cast(str, maxspeed['unit'])
   speed = cast(float, maxspeed['speed'])
   return SPEED_CONVERSIONS[unit] * speed
@@ -140,7 +140,7 @@ def field_valid(dat: dict, field: str) -> bool:
   return field in dat and dat[field] is not None
 
 
-def parse_banner_instructions(banners: Any, distance_to_maneuver: float = 0.0) -> dict[str, Any] | None:
+def parse_banner_instructions(banners: Any, distance_to_maneuver: float = 0.0) -> Optional[Dict[str, Any]]:
   if not len(banners):
     return None
 
@@ -156,6 +156,7 @@ def parse_banner_instructions(banners: Any, distance_to_maneuver: float = 0.0) -
   instruction['showFull'] = distance_to_maneuver < current_banner['distanceAlongGeometry']
 
   # Primary
+  #print(f"current_banner: {current_banner}")
   p = current_banner['primary']
   if field_valid(p, 'text'):
     instruction['maneuverPrimaryText'] = p['text']

@@ -3,7 +3,7 @@ import os
 import time
 import numpy as np
 from multiprocessing import Process
-from openpilot.common.threadname import setthreadname
+from setproctitle import setproctitle
 
 def waste(core):
   os.sched_setaffinity(0, [core,])
@@ -16,9 +16,9 @@ def waste(core):
   j = 0
   while 1:
     if (i % 100) == 0:
-      setthreadname("%3d: %8d" % (core, i))
+      setproctitle(f"{core:3d}: {i:8d}")
       lt = time.monotonic()
-      print("%3d: %8d %f  %.2f" % (core, i, lt-st, j))
+      print(f"{core:3d}: {i:8d} {lt-st:f}  {j:.2f}")
       st = lt
     i += 1
     j = np.sum(np.matmul(m1, m2))

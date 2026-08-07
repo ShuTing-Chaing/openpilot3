@@ -10,9 +10,5 @@ QT_TRANSLATE_NOOP("OffroadAlert", R"(Device failed to register. It will not conn
 QT_TRANSLATE_NOOP("OffroadAlert", R"(NVMe drive not mounted.)");
 QT_TRANSLATE_NOOP("OffroadAlert", R"(Unsupported NVMe drive detected. Device may draw significantly more power and overheat due to the unsupported NVMe.)");
 QT_TRANSLATE_NOOP("OffroadAlert", R"(openpilot was unable to identify your car. Your car is either unsupported or its ECUs are not recognized. Please submit a pull request to add the firmware versions to the proper vehicle. Need help? Join discord.comma.ai.)");
-QT_TRANSLATE_NOOP("OffroadAlert", R"(openpilot was unable to identify your car. Check integrity of cables and ensure all connections are secure, particularly that the comma power is fully inserted in the OBD-II port of the vehicle. Need help? Join discord.comma.ai.)");
 QT_TRANSLATE_NOOP("OffroadAlert", R"(openpilot detected a change in the device's mounting position. Ensure the device is fully seated in the mount and the mount is firmly secured to the windshield.)");
-QT_TRANSLATE_NOOP("OffroadAlert", R"(OpenStreetMap database is out of date. New maps must be downloaded if you wish to continue using OpenStreetMap data for Enhanced Speed Control and road name display.
-
-%1)");
-QT_TRANSLATE_NOOP("OffroadAlert", R"(sunnypilot is now in Forced Offroad mode. sunnypilot won't start until Forced Offroad mode is disabled. Go to "Settings" -> "Device" -> "Unforce Offroad" to exit Force Offroad mode.)");
+QT_TRANSLATE_NOOP("OffroadAlert", R"(openpilot is now in Forced Offroad mode. openpilot won't start until Forced Offroad mode is disabled. Go to "Settings" -> "Device" -> "Unforce Offroad" to exit Force Offroad mode.)");

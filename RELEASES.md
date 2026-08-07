@@ -1,6 +1,70 @@
-Version 0.9.8 (2024-XX-XX)
+Carrot2-v9 (2025-09-21)
 ========================
+* GWM Model
+* Lead + 1 detect (전전차 감지기능)
+* Improve radar vision matching
+* Auto safe-mode on stopped vehicle detection
+
+Carrot2-v9 (2025-09-xx)
+========================
+* TR16 Model
+* RadarTrack Option:3 (Cutin Detect, vision fail detection)
+* RdarTrack Option: 2 (always use SCC radar)
+* Brake light (CANFD)
+
+
+Carrot2-v9 (2025-08-12)
+========================
+* TombRaider16 v2 model.
+* Remove ShowPathMode CruiseOff
+* Add CancelButtonMode (0: Long Only, 1: Long + Lat)
+* fix CASPER cruise button
+* bugfix. Mapbox ATC with Waze
+* ScreenRecorder 3 -> 20min
+* fix RadarTrack processing
+
+Carrot2-v9 (2025-08-04)
+========================
+* CruiseSpeedUnit
+* fix RadarTrack processing
+
+Carrot2-v9 (2025-08-03)
+========================
+* IONIQ9 support
+* fix StockSCC bug.
+* fix CPU usage(card: core 4->6)
+
+Carrot2-v9 (2025-08-01)
+========================
+* SpaceLab V3 model
+* RadarTracks support(CANFD)
+* new CanParser
+
+
+Version 0.9.9 (2025-04-30)
+========================
+* New driving model
+* Tesla Model 3 and Y support thanks to lukasloetkolben!
+* Coming soon
+  * New driving model supervised by MLSIM
+  * An online learner for steering actuator delay
+
+Version 0.9.8 (2025-02-28)
+========================
+* New driving model
+  * Model now gates applying positive acceleration in Chill mode
+* New driver monitoring model
+  * Reduced false positives related to passengers
+* Image processing pipeline moved to the ISP
+  * More GPU time for bigger driving models
+  * Power draw reduced 0.5W, which means your device runs cooler
 * Added toggle to enable driver monitoring even when openpilot is not engaged
+* Localizer rewritten to remove GPS dependency at runtime
+* Firehose Mode for maximizing your training data uploads
+* Enable openpilot longitudinal control for Ford Q3 vehicles
+* New Toyota TSS2 longitudinal tune
+* Rivian R1S and R1T support thanks to lukasloetkolben!
+* Ford F-150, F-150 Hybrid, Mach-E, and Ranger support
 
 Version 0.9.7 (2024-06-13)
 ========================

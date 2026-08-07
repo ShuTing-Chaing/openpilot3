@@ -1,51 +1,46 @@
 #!/usr/bin/env python3
-import os
-import numpy as np
 from cereal import car
 from openpilot.common.params import Params
 from openpilot.common.realtime import Priority, config_realtime_process
 from openpilot.common.swaglog import cloudlog
-from openpilot.selfdrive.modeld.constants import ModelConstants
+from openpilot.selfdrive.controls.lib.ldw import LaneDepartureWarning
 from openpilot.selfdrive.controls.lib.longitudinal_planner import LongitudinalPlanner
 from openpilot.selfdrive.controls.lib.lateral_planner import LateralPlanner
-from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata, ModelCapabilities
 import cereal.messaging as messaging
+from openpilot.selfdrive.carrot.carrot_functions import CarrotPlanner
 
 
-def plannerd_thread():
+def main():
   config_realtime_process(5, Priority.CTRL_LOW)
 
   cloudlog.info("plannerd is waiting for CarParams")
   params = Params()
   CP = messaging.log_from_bytes(params.get("CarParams", block=True), car.CarParams)
-  cloudlog.info("plannerd got CarParams: %s", CP.carName)
+  cloudlog.info("plannerd got CarParams: %s", CP.brand)
 
-  debug_mode = bool(int(os.getenv("DEBUG", "0")))
-
+  ldw = LaneDepartureWarning()
   longitudinal_planner = LongitudinalPlanner(CP)
+  lateral_planner = LateralPlanner(CP, debug=False)
 
-  custom_model_metadata = CustomModelMetadata(params=params, init_only=True)
-  model_use_lateral_planner = custom_model_metadata.valid and custom_model_metadata.capabilities & ModelCapabilities.LateralPlannerSolution
-  lateral_planner = LateralPlanner(CP, debug=debug_mode, model_use_lateral_planner=model_use_lateral_planner)
-  lateral_planner_svs = ['lateralPlanDEPRECATED', 'lateralPlanSPDEPRECATED']
-
-  pm = messaging.PubMaster(['longitudinalPlan', 'longitudinalPlanSP'] + lateral_planner_svs)
-  sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'radarState', 'modelV2',
-                            'longitudinalPlan', 'navInstruction', 'longitudinalPlanSP',
-                            'liveMapDataSP', 'e2eLongStateSP', 'controlsStateSP'] + lateral_planner_svs,
+  pm = messaging.PubMaster(['longitudinalPlan', 'driverAssistance', 'lateralPlan'])
+  sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'liveParameters', 'radarState', 'modelV2', 'selfdriveState', 'carrotMan'],
                            poll='modelV2', ignore_avg_freq=['radarState'])
+  carrot = CarrotPlanner()
 
   while True:
     sm.update()
     if sm.updated['modelV2']:
-      lateral_planner.update(sm)
-      lateral_planner.publish(sm, pm)
-      longitudinal_planner.update(sm)
-      longitudinal_planner.publish(sm, pm)
+      lateral_planner.update(sm, carrot)
+      lateral_planner.publish(sm, pm, carrot)
+      longitudinal_planner.update(sm, carrot)
+      longitudinal_planner.publish(sm, pm, carrot)
 
-
-def main():
-  plannerd_thread()
+      ldw.update(sm.frame, sm['modelV2'], sm['carState'], sm['carControl'])
+      msg = messaging.new_message('driverAssistance')
+      msg.valid = sm.all_checks(['carState', 'carControl', 'modelV2', 'liveParameters'])
+      msg.driverAssistance.leftLaneDeparture = ldw.left
+      msg.driverAssistance.rightLaneDeparture = ldw.right
+      pm.send('driverAssistance', msg)
 
 
 if __name__ == "__main__":

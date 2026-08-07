@@ -3,12 +3,15 @@ import json
 import math
 import os
 import threading
+import importlib
 
 import requests
+import numpy as np
 
 import cereal.messaging as messaging
 from cereal import log
 from openpilot.common.api import Api
+
 from openpilot.common.params import Params
 from openpilot.common.realtime import Ratekeeper
 from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
@@ -16,6 +19,8 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                     minimum_distance,
                                     parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
+from selfdrive.carrot.carrot_man import CarrotMan
+
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
@@ -24,13 +29,14 @@ REROUTE_COUNTER_MIN = 3
 
 class RouteEngine:
   def __init__(self, sm, pm):
+    self.name = "RouteEngine Instance"
     self.sm = sm
     self.pm = pm
 
     self.params = Params()
 
     # Get last gps position from params
-    self.last_position = coordinate_from_param("LastGPSPosition", self.params)
+    self.last_position,_ = coordinate_from_param("LastGPSPosition", self.params)
     self.last_bearing = None
 
     self.gps_ok = False
@@ -48,19 +54,21 @@ class RouteEngine:
 
     self.reroute_counter = 0
 
+    self.carrot_route_active = False
 
-    self.api = None
-    self.mapbox_token = None
     if "MAPBOX_TOKEN" in os.environ:
       self.mapbox_token = os.environ["MAPBOX_TOKEN"]
       self.mapbox_host = "https://api.mapbox.com"
-    else:
-      self.api = Api(self.params.get("DongleId", encoding='utf8'))
-      self.mapbox_host = "https://maps.comma.ai"
-
-    if self.mapbox_token != "" and self.params.get("CustomMapboxTokenSk") is not None:
-      self.mapbox_token = self.params.get("CustomMapboxTokenSk")
+    elif self.params.get_int("PrimeType") == 0:
+      self.mapbox_token = self.params.get("MapboxPublicKey", encoding='utf8')
       self.mapbox_host = "https://api.mapbox.com"
+    else:
+      try:
+        self.mapbox_token = Api(self.params.get("DongleId", encoding='utf8')).get_token(expiry_hours=4 * 7 * 24)
+      except FileNotFoundError:
+        cloudlog.exception("Failed to generate mapbox token due to missing private key. Ensure device is registered.")
+        self.mapbox_token = ""
+      self.mapbox_host = "https://maps.comma.ai"
 
   def update(self):
     self.sm.update(0)
@@ -70,10 +78,15 @@ class RouteEngine:
       if ui_pid:
         if self.ui_pid and self.ui_pid != ui_pid[0]:
           cloudlog.warning("UI restarting, sending route")
+          print("########## UI restarting, sending route")
           threading.Timer(5.0, self.send_route).start()
         self.ui_pid = ui_pid[0]
 
     self.update_location()
+
+    if self.carrot_route_active:
+      return
+
     try:
       self.recompute_route()
       self.send_instruction()
@@ -81,28 +94,30 @@ class RouteEngine:
       cloudlog.exception("navd.failed_to_compute")
 
   def update_location(self):
-    location = self.sm['liveLocationKalman']
-    self.gps_ok = location.gpsOK
 
-    self.localizer_valid = (location.status == log.LiveLocationKalman.Status.valid) and location.positionGeodetic.valid
-
-    if self.localizer_valid:
-      self.last_bearing = math.degrees(location.calibratedOrientationNED.value[2])
-      self.last_position = Coordinate(location.positionGeodetic.value[0], location.positionGeodetic.value[1])
+    carrot_man = self.sm['carrotMan']
+    if carrot_man.xPosLat != 0.0 and carrot_man.xPosLon != 0.0:
+      self.last_bearing = carrot_man.xPosAngle;
+      self.last_position = Coordinate(carrot_man.xPosLat, carrot_man.xPosLon)
+      self.localizer_valid = self.gps_ok = True
+    else:
+      self.localizer_valid = self.gps_ok = False
+      self.carrot_route_active = False
 
   def recompute_route(self):
     if self.last_position is None:
       return
 
-    new_destination = coordinate_from_param("NavDestination", self.params)
+    new_destination, place_name = coordinate_from_param("NavDestination", self.params)
     if new_destination is None:
       self.clear_route()
       self.reset_recompute_limits()
       return
-
-    should_recompute = self.should_recompute()
-    if new_destination != self.nav_destination:
+    #print(f"new_destination: {new_destination} nav_destination: {self.nav_destination}")
+    should_recompute = self.should_recompute() and place_name != "External Navi"
+    if new_destination != self.nav_destination and place_name != "External Navi":
       cloudlog.warning(f"Got new destination from NavDestination param {new_destination}")
+      print(f"Got new destination from NavDestination param {new_destination} {self.nav_destination} {place_name}")
       should_recompute = True
 
     # Don't recompute when GPS drifts in tunnels
@@ -119,18 +134,15 @@ class RouteEngine:
 
   def calculate_route(self, destination):
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
+    print(f"############## Calculating route {self.last_position} -> {destination}")
     self.nav_destination = destination
 
     lang = self.params.get('LanguageSetting', encoding='utf8')
     if lang is not None:
       lang = lang.replace('main_', '')
 
-    token = self.mapbox_token
-    if token is None:
-      token = self.api.get_token()
-
     params = {
-      'access_token': token,
+      'access_token': self.mapbox_token,
       'annotations': 'maxspeed',
       'geometries': 'geojson',
       'overview': 'full',
@@ -193,6 +205,7 @@ class RouteEngine:
         self.step_idx = 0
       else:
         cloudlog.warning("Got empty route response")
+        print("Got empty route response")
         self.clear_route()
 
       # clear waypoints to avoid a re-route including past waypoints
@@ -201,18 +214,19 @@ class RouteEngine:
 
     except requests.exceptions.RequestException:
       cloudlog.exception("failed to get route")
+      print("failed to get route")
       self.clear_route()
 
     self.send_route()
 
   def send_instruction(self):
     msg = messaging.new_message('navInstruction', valid=True)
-
+    #print("navd_navInstruction")
     if self.step_idx is None:
       msg.valid = False
       self.pm.send('navInstruction', msg)
       return
-
+    #print("navd_navInstruction")
     step = self.route[self.step_idx]
     geometry = self.route_geometry[self.step_idx]
     along_geometry = distance_along_geometry(geometry, self.last_position)
@@ -284,6 +298,8 @@ class RouteEngine:
 
     if ('maxspeed' in closest.annotations) and self.localizer_valid:
       msg.navInstruction.speedLimit = closest.annotations['maxspeed']
+      print(closest.annotations)
+
 
     # Speed limit sign type
     if 'speedLimitSign' in step:
@@ -301,6 +317,7 @@ class RouteEngine:
         self.reset_recompute_limits()
       else:
         cloudlog.warning("Destination reached")
+        print("Destination reached")
 
         # Clear route if driving away from destination
         dist = self.nav_destination.distance_to(self.last_position)
@@ -315,9 +332,12 @@ class RouteEngine:
       for path in self.route_geometry:
         coords += [c.as_dict() for c in path]
 
-    msg = messaging.new_message('navRoute', valid=True)
-    msg.navRoute.coordinates = coords
-    self.pm.send('navRoute', msg)
+    if len(coords) == 0:
+      return
+    #print("$$$$$$$$$$$$$$$$$$coords=",coords)
+    msg = messaging.new_message('navRouteNavd', valid=True)
+    msg.navRouteNavd.coordinates = coords
+    self.pm.send('navRouteNavd', msg)
 
   def clear_route(self):
     self.route = None
@@ -356,10 +376,9 @@ class RouteEngine:
     return self.reroute_counter > REROUTE_COUNTER_MIN
     # TODO: Check for going wrong way in segment
 
-
 def main():
-  pm = messaging.PubMaster(['navInstruction', 'navRoute'])
-  sm = messaging.SubMaster(['liveLocationKalman', 'managerState'])
+  pm = messaging.PubMaster(['navInstruction', 'navRouteNavd'])
+  sm = messaging.SubMaster(['managerState', 'carrotMan'])
 
   rk = Ratekeeper(1.0)
   route_engine = RouteEngine(sm, pm)

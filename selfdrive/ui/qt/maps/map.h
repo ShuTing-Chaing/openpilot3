@@ -51,7 +51,6 @@ private:
   void setError(const QString &err_str);
 
   bool loaded_once = false;
-  bool prev_time_valid = true;
 
   // Panning
   QPointF m_lastPos;
@@ -79,6 +78,11 @@ private:
   void updateDestinationMarker();
   uint64_t route_rcv_frame = 0;
 
+  // FrogPilot variables
+  Params params;
+  uint64_t model_rcv_frame = 0;
+
+  float MAX_ZOOM = 17;  // carrot
 private slots:
   void updateState(const UIState &s);
 
