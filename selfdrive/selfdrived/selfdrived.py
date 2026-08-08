@@ -331,11 +331,11 @@ class SelfdriveD:
         cloudlog.event("process_not_running", not_running=not_running, error=True)
       self.not_running_prev = not_running
     if self.sm.recv_frame['managerState'] and not_running:
-      self.events.add(EventName.processNotRunning)
+      pass#self.events.add(EventName.processNotRunning)
     else:
       if not SIMULATION and not self.rk.lagging:
         if not self.sm.all_alive(self.camera_packets):
-          self.events.add(EventName.cameraMalfunction)
+          pass#self.events.add(EventName.cameraMalfunction)
         elif not self.sm.all_freq_ok(self.camera_packets):
           self.events.add(EventName.cameraFrameRate)
     if not REPLAY and self.rk.lagging:
@@ -358,11 +358,11 @@ class SelfdriveD:
     no_system_errors = (not has_disable_events) or (len(self.events) == num_events)
     if not self.sm.all_checks() and no_system_errors:
       if not self.sm.all_alive():
-        self.events.add(EventName.commIssue)
+        pass#self.events.add(EventName.commIssue)
       elif not self.sm.all_freq_ok():
-        self.events.add(EventName.commIssueAvgFreq)
+        pass#self.events.add(EventName.commIssueAvgFreq)
       else:
-        self.events.add(EventName.commIssue)
+        pass#self.events.add(EventName.commIssue)
 
       logs = {
         'invalid': [s for s, valid in self.sm.valid.items() if not valid],
