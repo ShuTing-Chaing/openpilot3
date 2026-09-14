@@ -156,12 +156,14 @@ class CarState(CarStateBase, CarStateExt):
     # specifies in km/h, whenever UNITS is out of range.
     units = cp.vl["BODY_CONTROL_STATE_2"]["UNITS"]
     if ret.cruiseState.speed != 0:
-      if units in (1, 2):
-        ret.cruiseState.speedCluster = cluster_set_speed * CV.KPH_TO_MS
-      elif units in (3, 4):
+      if units in (3, 4):
         ret.cruiseState.speedCluster = cluster_set_speed * CV.MPH_TO_MS
       else:
-        ret.cruiseState.speedCluster = ret.cruiseState.speed
+        # 1/2 are the documented metric codes. This 2026 Sienna PRC reports 7
+        # (out of the documented 1..4 range) while the cluster is metric, so
+        # treat anything that is not the documented imperial code as metric:
+        # UI_SET_SPEED is the figure shown on the cluster, in km/h.
+        ret.cruiseState.speedCluster = cluster_set_speed * CV.KPH_TO_MS
 
     if self.CP.flags & ToyotaFlags.TSS2 and not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value:
       if not (self.CP_SP.flags & ToyotaFlagsSP.SMART_DSU.value):
