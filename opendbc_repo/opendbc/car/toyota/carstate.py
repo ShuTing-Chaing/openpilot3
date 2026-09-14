@@ -35,7 +35,7 @@ class CarState(CarStateBase, CarStateExt):
     self.cluster_min_speed = CV.KPH_TO_MS / 2.
 
     if CP.flags & ToyotaFlags.SECOC.value:
-      self.shifter_values = can_define.dv["GEAR_PACKET_HYBRID"]["GEAR"]
+      self.shifter_values = can_define.dv["GEAR_PACKET"]["GEAR"]
     else:
       self.shifter_values = can_define.dv["GEAR_PACKET"]["GEAR"]
 
@@ -77,7 +77,7 @@ class CarState(CarStateBase, CarStateExt):
     if self.CP.flags & ToyotaFlags.SECOC.value:
       self.secoc_synchronization = copy.copy(cp.vl["SECOC_SYNCHRONIZATION"])
       ret.gasPressed = cp.vl["GAS_PEDAL"]["GAS_PEDAL_USER"] > 0
-      can_gear = int(cp.vl["GEAR_PACKET_HYBRID"]["GEAR"])
+      can_gear = int(cp.vl["GEAR_PACKET"]["GEAR"])
     else:
       ret.gasPressed = cp.vl["PCM_CRUISE"]["GAS_RELEASED"] == 0
       can_gear = int(cp.vl["GEAR_PACKET"]["GEAR"])
