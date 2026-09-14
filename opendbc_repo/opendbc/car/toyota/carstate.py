@@ -220,6 +220,16 @@ class CarState(CarStateBase, CarStateExt):
   def get_can_parsers(CP, CP_SP):
     pt_messages = [
       ("BLINKERS_STATE", float('nan')),
+      # This car does not broadcast these messages. Registering them with a NaN
+      # rate marks them alive-ignored, so their absence no longer forces
+      # can_valid=False (which made controlsd set carControl invalid and
+      # blocked ACC). Merely reading cp.vl[...] would auto-register them as
+      # alive-required instead.
+      ("DSU_CRUISE", float('nan')),
+      ("GEAR_PACKET", float('nan')),
+      ("GEAR_PACKET_HYBRID", float('nan')),
+      ("PCM_CRUISE_ALT", float('nan')),
+      ("VSC1S07", float('nan')),
     ]
 
     cam_messages = [
