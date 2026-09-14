@@ -149,10 +149,19 @@ class CarState(CarStateBase, CarStateExt):
       cluster_set_speed = cp.vl["PCM_CRUISE_SM"]["UI_SET_SPEED"]
 
     # UI_SET_SPEED is always non-zero when main is on, hide until first enable
-    is_metric = cp.vl["BODY_CONTROL_STATE_2"]["UNITS"] in (1, 2)
+    # The DBC documents UNITS as 1..4 (1/2 metric, 3/4 imperial), but this 2026
+    # Sienna PRC reports 7 while the cluster is metric. Treating that as
+    # imperial scaled the km/h figure by the mph factor (30 km/h showed as 48).
+    # Keep the documented values as-is and fall back to SET_SPEED, which the DBC
+    # specifies in km/h, whenever UNITS is out of range.
+    units = cp.vl["BODY_CONTROL_STATE_2"]["UNITS"]
     if ret.cruiseState.speed != 0:
-      conversion_factor = CV.KPH_TO_MS if is_metric else CV.MPH_TO_MS
-      ret.cruiseState.speedCluster = cluster_set_speed * conversion_factor
+      if units in (1, 2):
+        ret.cruiseState.speedCluster = cluster_set_speed * CV.KPH_TO_MS
+      elif units in (3, 4):
+        ret.cruiseState.speedCluster = cluster_set_speed * CV.MPH_TO_MS
+      else:
+        ret.cruiseState.speedCluster = ret.cruiseState.speed
 
     if self.CP.flags & ToyotaFlags.TSS2 and not self.CP.flags & ToyotaFlags.DISABLE_RADAR.value:
       if not (self.CP_SP.flags & ToyotaFlagsSP.SMART_DSU.value):
