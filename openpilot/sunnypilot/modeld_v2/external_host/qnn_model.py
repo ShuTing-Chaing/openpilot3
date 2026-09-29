@@ -293,7 +293,18 @@ def create_model(base_class, config_path, cam_w, cam_h, progress=None):
         scalars, next_desire = encode_live_inputs(self.prev_desire, inputs, phone_desire_edges=self.profile.get('wire_protocol') == 'opif_tcp')
         if (time.clock_gettime_ns(time.CLOCK_BOOTTIME) - meta.timestamp_eof) / 1e9 >= self.async_session.maximum_age:
           raise HostError('QNN preprocessing exceeded the capture deadline')
-        self.async_session.submit(meta.frame_id, meta.timestamp_eof, pixels.tobytes(), scalars, context)
+        try:
+          self.async_session.submit(meta.frame_id, meta.timestamp_eof, pixels.tobytes(), scalars, context)
+        except HistoryResetRequired:
+          # A full local admission window is transient backpressure, not a
+          # transport failure. Keep the TCP session alive and drop this frame;
+          # the next frame can use the freed sequence slot without making the
+          # phone UI report a disconnect/reconnect cycle.
+          if self.async_session.error is not None or self.async_session.stopped:
+            raise
+          if after_enqueue:
+            after_enqueue()
+          return None
         self.prev_desire[:] = next_desire
         if after_enqueue:
           after_enqueue()
