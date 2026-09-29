@@ -23,6 +23,10 @@
 3. 保持 `QNN control preference` 关闭进行 shadow 验证；只有独立资格记录通过后才允许控制输出接管。
 4. 每次 onroad 首次失败会写入 `C3XLQnnWifiFailedThisOnroad` 并锁定本地模型到本次行车结束。
 
+## 分支切换
+
+从旧的 `c3xl-dev` 或任何还没有 QNN 参数/原生组件的分支切到本分支时，必须重新执行 `build.py`/`scons`。启动脚本会检测 `C3XLQnnWifiEnabled` 是否已编译进 Params，发现缺失时自动强制重建一次，避免 manager 因 `UnknownKeyName` 启动失败。
+
 ## 构建注意
 
 启用后会通过 `openpilot/sunnypilot/SConscript` 编译 `external_host/opif/SConscript`，生成 `opif_native` 和 C3XL 用的 `wifi_power_ctl`。Android 端模型 ABI 是 Cinque v3，不是普通 supercombo pkl 的直接替换。

@@ -93,7 +93,14 @@ def is_stock_model(started, params, CP: car.CarParams) -> bool:
   return bool(get_active_model_runner(params, not started) == custom.ModelManagerSP.Runner.stock)
 
 def c3xl_qnn_discovery(started, params: Params, CP: car.CarParams) -> bool:
-  return get_hardware_profile() == HardwareProfile.C3XL and params.get_bool('C3XLQnnWifiEnabled')
+  if get_hardware_profile() != HardwareProfile.C3XL:
+    return False
+  try:
+    return params.get_bool('C3XLQnnWifiEnabled')
+  except Exception:
+    # Older compiled Params libraries do not know this key yet. The launcher
+    # forces a rebuild, and manager must still be able to start in the meantime.
+    return False
 
 
 def mapd_ready(started: bool, params: Params, CP: car.CarParams) -> bool:

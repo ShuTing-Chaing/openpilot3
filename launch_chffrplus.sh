@@ -124,6 +124,13 @@ function launch {
 
   # start manager
   cd openpilot/system/manager
+  # A branch switch can add Params keys or native sources while an old
+  # prebuilt library is still present. Detect the schema mismatch before
+  # manager starts and force one rebuild instead of crashing on UnknownKeyName.
+  if [ -f "$DIR/prebuilt" ] && ! PYTHONPATH="$DIR" python3 -c 'from openpilot.common.params import Params; Params().get_bool("C3XLQnnWifiEnabled")' >/dev/null 2>&1; then
+    echo "[bootstrap] Params schema changed; forcing rebuild"
+    rm -f "$DIR/prebuilt"
+  fi
   if [ ! -f $DIR/prebuilt ]; then
     ./build.py
   fi
