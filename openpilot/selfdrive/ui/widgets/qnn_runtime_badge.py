@@ -79,6 +79,8 @@ class RuntimeBadgeCache:
     self._worker = None
     self._next_read = -float('inf')
     self._results = queue.Queue(maxsize=1)
+    self._last_remote_outputs = None
+    self._last_remote_change_at = -float('inf')
 
   @property
   def pending(self):
@@ -89,6 +91,10 @@ class RuntimeBadgeCache:
       self._raw = self._results.get_nowait()
       if isinstance(self._raw, dict) and self._raw.get('schema') == 'qnn-host-status-v1':
         self._seen = True
+        remote_outputs = self._raw.get('remote_outputs')
+        if type(remote_outputs) is int and remote_outputs != self._last_remote_outputs:
+          self._last_remote_outputs = remote_outputs
+          self._last_remote_change_at = self.clock()
     except queue.Empty:
       pass
 
@@ -115,6 +121,19 @@ class RuntimeBadgeCache:
   def state(self):
     self._consume()
     return describe_runtime(self._raw, self.clock(), seen=self._seen)
+
+  def remote_inferring(self):
+    """Return true only while bounded remote output counters are advancing."""
+    self._consume()
+    raw = self._raw
+    if not isinstance(raw, dict) or raw.get('schema') != 'qnn-host-status-v1':
+      return False
+    stamp = raw.get('updated_boottime')
+    now = self.clock()
+    remote_outputs = raw.get('remote_outputs')
+    return (type(stamp) in (int, float) and math.isfinite(stamp) and 0 <= now - stamp <= 3 and
+            raw.get('remote_started') is True and type(remote_outputs) is int and remote_outputs > 0 and
+            now - self._last_remote_change_at <= 2 and not raw.get('failure_reason'))
 
 
 class QnnRuntimeBadge:

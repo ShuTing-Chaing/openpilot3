@@ -17,6 +17,7 @@ from openpilot.selfdrive.ui.sunnypilot.onroad.turn_signal import TurnSignalContr
 from openpilot.selfdrive.ui.sunnypilot.onroad.circular_alerts import CircularAlertsRenderer
 from openpilot.selfdrive.ui.sunnypilot.onroad.speed_renderer import SpeedRenderer
 from openpilot.selfdrive.ui.ui_state import ui_state, UIStatus
+from openpilot.selfdrive.ui.widgets.qnn_runtime_badge import RuntimeBadgeCache
 from openpilot.selfdrive.ui.onroad.hud_renderer import HudRenderer, UI_CONFIG, FONT_SIZES, COLORS, CRUISE_DISABLED_CHAR
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.multilang import tr
@@ -36,6 +37,8 @@ class HudRendererSP(HudRenderer):
     self.turn_signal_controller = TurnSignalController()
     self.circular_alerts_renderer = CircularAlertsRenderer()
     self.speed_renderer = SpeedRenderer()
+    self._qnn_runtime = RuntimeBadgeCache()
+    self._qnn_egpu_icon = gui_app.texture("icons_mici/chestnut_green.png", 120, 88)
     self._torque_bar = TorqueBar(scale=3.0, always=True)
 
     self.pcm_cruise_speed: bool = True
@@ -60,6 +63,7 @@ class HudRendererSP(HudRenderer):
     self.turn_signal_controller.update()
     self.circular_alerts_renderer.update()
     self.speed_renderer.update()
+    self._qnn_runtime.update()
 
   def _get_icbm_status(self):
     if not self.pcm_cruise_speed and ui_state.sm['carControl'].enabled:
@@ -128,6 +132,14 @@ class HudRendererSP(HudRenderer):
   def _draw_current_speed(self, rect: rl.Rectangle) -> None:
     self.speed_renderer.render(rect)
 
+  def _draw_qnn_egpu_icon(self, rect: rl.Rectangle) -> None:
+    if not self._qnn_runtime.remote_inferring():
+      return
+    icon = self._qnn_egpu_icon
+    rl.draw_texture_ex(icon, rl.Vector2(rect.x + rect.width - UI_CONFIG.border_size - icon.width,
+                                        rect.y + rect.height - UI_CONFIG.border_size - icon.height),
+                       0.0, 1.0, rl.WHITE)
+
   def _render(self, rect: rl.Rectangle) -> None:
     super()._render(rect)
 
@@ -144,3 +156,4 @@ class HudRendererSP(HudRenderer):
     self.turn_signal_controller.render(rect)
     self.circular_alerts_renderer.render(rect)
     self.rocket_fuel.render(rect, ui_state.sm)
+    self._draw_qnn_egpu_icon(rect)
