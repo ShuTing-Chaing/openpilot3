@@ -1,0 +1,6 @@
+Import('env', 'arch')
+codec_env = env.Clone()
+codec_env.Append(CXXFLAGS=['-fno-fast-math', '-fno-finite-math-only'])
+codec_env.SharedLibrary('opif_native', 'opif_native.cc')
+if arch == 'comma_arm64':
+  env.Program('../wifi_power_ctl', '../wifi_power.c')

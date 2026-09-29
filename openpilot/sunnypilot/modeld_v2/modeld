@@ -1,4 +1,19 @@
 #!/usr/bin/env bash
-
+set -euo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+SOURCE_ROOT="$(cd "$DIR/../../.." >/dev/null && pwd)"
+QNN_CONFIG="${QNN_HOST_PROFILE:-/data/qnn-host/active-host.json}"
+
+# qnn_cli selected returns 0 only when the user enabled the persistent QNN
+# preference.  All profile/pairing/qualification checks remain in modeld.
+QNN_SELECTION=0
+PYTHONPATH="$SOURCE_ROOT" /usr/local/venv/bin/python -m openpilot.sunnypilot.modeld_v2.external_host.qnn_cli selected >/dev/null 2>&1 || QNN_SELECTION=$?
+if [ "$QNN_SELECTION" -eq 0 ]; then
+  unset C3XL_QNN_LOCAL_ONLY C3XL_QNN_GPU_FALLBACK
+  export CTM_EXTERNAL_CONFIG="$QNN_CONFIG"
+  echo "Android QNN selected; local small model starts while phone reconnects" >&2
+else
+  unset CTM_EXTERNAL_CONFIG C3XL_QNN_LOCAL_ONLY C3XL_QNN_GPU_FALLBACK
+fi
+
 exec "$DIR/modeld.py" "$@"

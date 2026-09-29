@@ -12,6 +12,7 @@ from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.selfdrive.ui.layouts.settings.developer import DeveloperLayout
 from openpilot.common.hardware import PC
 from openpilot.common.hardware.hw import Paths
+from openpilot.sunnypilot.hardware.profile import HardwareProfile, get_hardware_profile
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.widgets import DialogResult
@@ -20,6 +21,8 @@ from openpilot.system.ui.widgets.list_view import button_item
 
 from openpilot.system.ui.sunnypilot.widgets.html_render import HtmlModalSP
 from openpilot.system.ui.sunnypilot.widgets.list_view import toggle_item_sp
+from openpilot.selfdrive.ui.widgets.qnn_wifi import QnnWifiUiState, ENABLED_PARAM, CONTROL_PARAM
+from openpilot.selfdrive.ui.sunnypilot.layouts.settings.qnn_wifi import QnnStatusDialog
 
 PREBUILT_PATH = os.path.join(Paths.comma_home(), "prebuilt") if PC else "/data/openpilot/prebuilt"
 
@@ -54,6 +57,35 @@ class DeveloperLayoutSP(DeveloperLayout):
 
     self.items: list = [self.show_advanced_controls, self.enable_github_runner_toggle, self.enable_copyparty_toggle, self.prebuilt_toggle, self.error_log_btn,]
 
+    if get_hardware_profile() == HardwareProfile.C3XL:
+      self._qnn_state = QnnWifiUiState(ui_state.params, ui_state.is_offroad)
+      self.qnn_wifi_toggle = toggle_item_sp(
+        "Android NPU Wi-Fi",
+        "Run the paired Snapdragon phone alongside the local model. This switch alone never selects remote control output.",
+        initial_state=self._qnn_state.flag(ENABLED_PARAM),
+        callback=lambda enabled: self._qnn_state.request(ENABLED_PARAM, enabled),
+        enabled=lambda: ui_state.is_offroad() and not self._qnn_state.pending and
+                        (self._qnn_state.configured or self._qnn_state.flag(ENABLED_PARAM)),
+      )
+      self.qnn_control_toggle = toggle_item_sp(
+        "QNN control preference (saved)",
+        "Saved across restarts and drives. Effective only after phone/model/device verification passes.",
+        initial_state=self._qnn_state.flag(CONTROL_PARAM), callback=self._on_qnn_control,
+        enabled=lambda: ui_state.is_offroad() and not self._qnn_state.pending and
+                        (self._qnn_state.control_preference_editable or self._qnn_state.flag(CONTROL_PARAM)),
+      )
+      self.qnn_status_button = button_item("Snapdragon NPU status / pairing", "VIEW",
+                                           "Pair a phone and inspect the live local/phone source state.",
+                                           callback=self._on_qnn_status)
+      self.items[0:0] = [self.qnn_wifi_toggle, self.qnn_control_toggle, self.qnn_status_button]
+
+  def _on_qnn_control(self, enabled: bool):
+    self.qnn_control_toggle.action_item.set_state(self._qnn_state.flag(CONTROL_PARAM))
+    self._qnn_state.request(CONTROL_PARAM, enabled)
+
+  def _on_qnn_status(self):
+    gui_app.push_widget(QnnStatusDialog(self._qnn_state))
+
   @staticmethod
   def _on_prebuilt_toggled(state):
     if state:
@@ -85,6 +117,12 @@ class DeveloperLayoutSP(DeveloperLayout):
     gui_app.push_widget(dialog)
 
   def _update_state(self):
+    if hasattr(self, "_qnn_state"):
+      self._qnn_state.update()
+      self.qnn_wifi_toggle.action_item.set_state(self._qnn_state.flag(ENABLED_PARAM))
+      self.qnn_control_toggle.action_item.set_state(self._qnn_state.flag(CONTROL_PARAM))
+      self.qnn_status_button.set_description(self._qnn_state.summary())
+
     disable_updates = ui_state.params.get_bool("DisableUpdates")
     show_advanced = ui_state.params.get_bool("ShowAdvancedControls")
 

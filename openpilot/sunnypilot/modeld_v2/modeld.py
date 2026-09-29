@@ -7,6 +7,7 @@ See the LICENSE.md file in the root directory for more details.
 """
 
 from collections.abc import Callable
+import json
 import os
 os.environ['GMMU'] = '0'
 import numpy as np
@@ -97,6 +98,41 @@ def _find_driving_pkl(bundle, chestnut: bool = False):
     return pkl_path
   return None
 
+
+
+
+def _load_qnn_external_config():
+  path = os.getenv("CTM_EXTERNAL_CONFIG")
+  if not path:
+    return None, None
+  try:
+    with open(path) as stream:
+      profile = json.load(stream)
+  except (OSError, ValueError):
+    cloudlog.exception("external model configuration could not be read")
+    return None, None
+  if not isinstance(profile, dict) or profile.get("transport") != "qnn_wifi":
+    return None, None
+  return path, profile
+
+
+def _load_qnn_models(config_path, profile, width, height, progress, params):
+  from openpilot.sunnypilot.modeld_v2.external_host.qnn_cli import mark_failed
+  from openpilot.sunnypilot.modeld_v2.external_host.qnn_hotstandby import QnnHotStandby
+  from openpilot.sunnypilot.modeld_v2.external_host.qnn_model import create_model
+  from openpilot.sunnypilot.modeld_v2.external_host.runtime_status import RuntimeStatusPublisher
+
+  remote = create_model(ModelState, config_path, width, height, progress)
+  try:
+    local = ModelState(cam_w=width, cam_h=height, chestnut=False)
+    local.warmup()
+    model = QnnHotStandby(remote, local, profile,
+                          on_failed=lambda reason: mark_failed(params, reason=reason))
+  except Exception:
+    remote.close()
+    raise
+  model.runtime_status_publisher = RuntimeStatusPublisher(params)
+  return model, local
 
 class FrameMeta:
   frame_id: int = 0
@@ -342,13 +378,17 @@ def main(demo=False):
   setproctitle(PROCESS_NAME)
   config_realtime_process(7, 54)
 
-  CHESTNUT = chestnut_present()
+  qnn_config_path, qnn_profile = _load_qnn_external_config()
+  qnn_selected = qnn_profile is not None
+  CHESTNUT = (not qnn_selected) and chestnut_present()
   if CHESTNUT:
     os.environ['HCQDEV_WAIT_TIMEOUT_MS'] = '3000'
 
   params = Params()
-  params.put_bool("ChestnutLoading", CHESTNUT)
+  params.put_bool("ChestnutLoading", CHESTNUT or qnn_selected)
+  params.put("ChestnutLoadingProgress", 0, block=True)
   params.remove("ChestnutActive")
+  params.remove("C3XLQnnRuntimePhase")
 
   # visionipc clients
   while True:
@@ -377,29 +417,52 @@ def main(demo=False):
   st = time.monotonic()
 
   model = None
-  if CHESTNUT:
-    big_model = None
-    def load_big():
-      nonlocal big_model
-      try:
-        m = ModelState(cam_w=vipc_client_main.width, cam_h=vipc_client_main.height, chestnut=True)
-        m.warmup()
-        big_model = m
-      except Exception:
-        cloudlog.exception("chestnut load failed")
-    loader = threading.Thread(target=load_big, daemon=True)
-    loader.start()
-    loader.join(BIG_MODEL_TIMEOUT)
-    model = big_model
-    if model is None:
-      params.put_bool("ChestnutModelError", True)
-    params.put_bool("ChestnutActive", model is not None)
-    if model is not None:
-      params.remove("ChestnutModelError")
+  small_model = None
 
-  small_model = ModelState(cam_w=vipc_client_main.width, cam_h=vipc_client_main.height, chestnut=False) if model is None or CHESTNUT else None
-  if model is None:
-    model = small_model
+  def update_loading_progress(progress: int):
+    progress = max(0, min(100, int(progress)))
+    params.put("ChestnutLoadingProgress", progress, block=True)
+
+  if qnn_selected:
+    try:
+      model, small_model = _load_qnn_models(qnn_config_path, qnn_profile, vipc_client_main.width,
+                                            vipc_client_main.height, update_loading_progress, params)
+      params.put("C3XLQnnRuntimePhase", model.phase, block=True)
+      params.put_bool("ChestnutActive", model.chestnut, block=True)
+      params.remove("ChestnutModelError")
+    except Exception:
+      cloudlog.exception("QNN startup failed; falling back to the local model")
+      from openpilot.sunnypilot.modeld_v2.external_host.qnn_cli import mark_failed as mark_qnn_failed
+      mark_qnn_failed(params, reason="startup_failed")
+      model = ModelState(cam_w=vipc_client_main.width, cam_h=vipc_client_main.height, chestnut=False)
+      model.warmup()
+      small_model = model
+      params.put_bool("ChestnutActive", False, block=True)
+      params.put_bool("ChestnutModelError", True, block=True)
+  else:
+    if CHESTNUT:
+      big_model = None
+      def load_big():
+        nonlocal big_model
+        try:
+          m = ModelState(cam_w=vipc_client_main.width, cam_h=vipc_client_main.height, chestnut=True)
+          m.warmup()
+          big_model = m
+        except Exception:
+          cloudlog.exception("chestnut load failed")
+      loader = threading.Thread(target=load_big, daemon=True)
+      loader.start()
+      loader.join(BIG_MODEL_TIMEOUT)
+      model = big_model
+      if model is None:
+        params.put_bool("ChestnutModelError", True)
+      params.put_bool("ChestnutActive", model is not None)
+      if model is not None:
+        params.remove("ChestnutModelError")
+
+    small_model = ModelState(cam_w=vipc_client_main.width, cam_h=vipc_client_main.height, chestnut=False) if model is None or CHESTNUT else None
+    if model is None:
+      model = small_model
   params.put_bool("ChestnutLoading", False)
   assert model is not None
   cloudlog.warning(f"models loaded in {time.monotonic() - st:.1f}s, modeld starting")
@@ -513,12 +576,15 @@ def main(demo=False):
     bufs = {name: buf_extra if 'big' in name else buf_main for name in model.vision_input_names}
     transforms = {name: model_transform_extra if 'big' in name else model_transform_main for name in model.vision_input_names}
 
-    frame_delay = DT_MDL # compensate for time passed since the frame was captured: current_time - timestamp_eof is 50ms on average
-    action_delay = DT_MDL / 2 # middle of the interval between model output (current state) and next frame (expected state)
+    if getattr(model, "qnn_hotstandby", False):
+      # Smoothing follows the source that is actually selected this frame.
+      long_delay = CP.longitudinalActuatorDelay + model.LONG_SMOOTH_SECONDS
+    frame_delay = getattr(model, "expected_frame_delay", DT_MDL)
+    action_delay = DT_MDL / 2
     lat_action_t = lat_delay + frame_delay + action_delay
     long_action_t = long_delay + frame_delay + action_delay
 
-    inputs:dict[str, np.ndarray] = {
+    inputs: dict[str, np.ndarray] = {
       model.desire_key: vec_desire,
       'traffic_convention': traffic_convention,
     }
@@ -529,37 +595,73 @@ def main(demo=False):
     if 'action_t' in model.numpy_inputs:
       inputs['action_t'] = np.array([lat_action_t, long_action_t], dtype=np.float32)
 
+    capture_context = {
+      "meta_main": meta_main, "meta_extra": meta_extra, "frame_id": frame_id,
+      "frame_drop_ratio": frame_drop_ratio, "vipc_dropped_frames": vipc_dropped_frames,
+      "live_calib_seen": live_calib_seen, "lat_action_t": lat_action_t,
+      "long_action_t": long_action_t, "v_ego": v_ego,
+      "lat_delay": lat_delay, "long_delay": long_delay,
+      "prev_acceleration": prev_action.desiredAcceleration,
+      "prev_curvature": prev_action.desiredCurvature,
+    }
+    if getattr(model, "external_host", False):
+      model.submit_context = capture_context
+
+    send_chestnut = (chestnut_state is not None and
+                     run_count % round(model.constants.MODEL_FREQ / SERVICE_LIST['chestnutState'].frequency) == 0)
     mt1 = time.perf_counter()
-    try:
-      send_chestnut = (chestnut_state is not None and
-                       run_count % round(model.constants.MODEL_FREQ / SERVICE_LIST['chestnutState'].frequency) == 0)
-      model_output = model.run(bufs, transforms, inputs, chestnut_state.send if send_chestnut else None)
-    except Exception:
-      if not params.get_bool("ChestnutActive"):
+    if getattr(model, "qnn_hotstandby", False):
+      try:
+        model_output = model.run(bufs, transforms, inputs,
+                                 after_enqueue=chestnut_state.send if send_chestnut else None)
+      except Exception:
+        cloudlog.exception("QNN hot standby failed")
         raise
-      cloudlog.exception("chestnut failed, falling back to small")
-      params.put_bool("ChestnutModelError", True)
-      params.put_bool("ChestnutActive", False)
-      assert small_model is not None
-      model = small_model
+      model_execution_time = getattr(model, "output_execution_time", time.perf_counter() - mt1)
+      model.runtime_status_publisher.offer(model.phase, model.chestnut)
       if chestnut_state is not None:
-        chestnut_state.big = False
-      run_count = 0
-      model_output = None
-    mt2 = time.perf_counter()
-    model_execution_time = mt2 - mt1
+        chestnut_state.big = model.chestnut
+    else:
+      try:
+        model_output = model.run(bufs, transforms, inputs, chestnut_state.send if send_chestnut else None)
+      except Exception:
+        if not params.get_bool("ChestnutActive"):
+          raise
+        cloudlog.exception("chestnut failed, falling back to small")
+        params.put_bool("ChestnutModelError", True)
+        params.put_bool("ChestnutActive", False)
+        assert small_model is not None
+        model = small_model
+        if chestnut_state is not None:
+          chestnut_state.big = False
+        run_count = 0
+        model_output = None
+      model_execution_time = time.perf_counter() - mt1
 
     if model_output is not None:
+      if getattr(model, "qnn_hotstandby", False):
+        from openpilot.sunnypilot.modeld_v2.external_host.qnn_hotstandby import StaleLocalOutput
+        try:
+          model_output, output_context = model.revalidate_publication(model_output, retime_plan=False)
+        except StaleLocalOutput:
+          continue
+      else:
+        output_context = capture_context
+      output_meta = output_context["meta_main"]
+      output_meta_extra = output_context["meta_extra"]
+
       modelv2_send = messaging.new_message('modelV2')
       drivingdata_send = messaging.new_message('drivingModelData')
       posenet_send = messaging.new_message('cameraOdometry')
       mdv2sp_send = messaging.new_message('modelDataV2SP')
 
-      action = model.get_action_from_model(model_output, prev_action, lat_action_t, long_action_t, v_ego)
+      action = model.get_action_from_model(model_output, prev_action, output_context["lat_action_t"],
+                                           output_context["long_action_t"], output_context["v_ego"])
       prev_action = action
       fill_model_msg(drivingdata_send, modelv2_send, model_output, action,
-                     publish_state, meta_main.frame_id, meta_extra.frame_id, frame_id,
-                     frame_drop_ratio, meta_main.timestamp_eof, model_execution_time, live_calib_seen, meta_constants)
+                     publish_state, output_meta.frame_id, output_meta_extra.frame_id, output_context["frame_id"],
+                     output_context["frame_drop_ratio"], output_meta.timestamp_eof, model_execution_time,
+                     output_context["live_calib_seen"], meta_constants)
       modelv2_send.modelV2.big = model.chestnut
 
       desire_state = modelv2_send.modelV2.meta.desireState
@@ -575,11 +677,19 @@ def main(demo=False):
       drivingdata_send.drivingModelData.meta.laneChangeState = DH.lane_change_state
       drivingdata_send.drivingModelData.meta.laneChangeDirection = DH.lane_change_direction
 
-      fill_pose_msg(posenet_send, model_output, meta_main.frame_id, vipc_dropped_frames, meta_main.timestamp_eof, live_calib_seen)
+      # Odometry advances on the continuous local camera stream even while the
+      # selected control source switches between local and phone output.
+      pose_output = getattr(model, "local_output", None) or model_output
+      pose_context = getattr(model, "local_output_context", None) or output_context
+      pose_meta = pose_context["meta_main"]
+      fill_pose_msg(posenet_send, pose_output, pose_meta.frame_id, pose_context["vipc_dropped_frames"],
+                    pose_meta.timestamp_eof, pose_context["live_calib_seen"])
       pm.send('modelV2', modelv2_send)
       pm.send('drivingModelData', drivingdata_send)
       pm.send('cameraOdometry', posenet_send)
       pm.send('modelDataV2SP', mdv2sp_send)
+      if getattr(model, "qnn_hotstandby", False):
+        model.runtime_status_publisher.offer(model.phase, model.chestnut)
     last_vipc_frame_id = meta_main.frame_id
 
 if __name__ == "__main__":

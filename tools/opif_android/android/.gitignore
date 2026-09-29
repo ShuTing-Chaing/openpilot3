@@ -1,0 +1,9 @@
+/build/
+/deps/
+/models/
+*.so
+*.bin
+*.raw
+*.f32
+*.onnx.data
+*.aar

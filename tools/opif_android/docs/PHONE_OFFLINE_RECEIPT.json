@@ -1,0 +1,218 @@
+{
+  "scope": "host protocol/projection/asynchronous UDP join replay and full Android build; no installation/device run by phone agent",
+  "build": {
+    "apk": "/Users/mile/.codex/worktrees/sp-8e5-router/mo-op/tools/opif_android/.cache/sp8e5-apk/OpenPilotInference-debug.apk",
+    "apk_sha256": "45914054a1d18e621ee9652781b58bf2c858e1bf88ce8299ce33a0c7fcac4bf3",
+    "apk_bytes": 922170545,
+    "package": "com.example.openpilotinference.android",
+    "min_sdk": 31,
+    "target_sdk": 35,
+    "version_code": 5,
+    "version_name": "0.1.4",
+    "model_sha256": "8cf7714f5d4f2601f273a7f4b7eddba25c9c6dbb8b38962c7600cda1fbd85961",
+    "native_libraries": [
+      "libonnxruntime.so",
+      "libonnxruntime_providers_qnn.so",
+      "libQnnHtp.so",
+      "libQnnHtpPrepare.so",
+      "libQnnHtpV81Stub.so",
+      "libQnnSystem.so",
+      "libc++_shared.so",
+      "libQnnHtpV81Skel.so",
+      "libopif_jni.so"
+    ],
+    "attention_mask": "shared_fp16_add_bias",
+    "reused_jni_sha256": null,
+    "graph_optimizations": [
+      {
+        "pass": "last-query",
+        "branch": "off",
+        "query_tokens_before": 288,
+        "query_tokens_after": 1,
+        "key_value_tokens": 288,
+        "removed_macs": 460816384,
+        "original_initializers_unchanged": true
+      },
+      {
+        "pass": "last-query",
+        "branch": "on",
+        "query_tokens_before": 288,
+        "query_tokens_after": 1,
+        "key_value_tokens": 288,
+        "removed_macs": 460816384,
+        "original_initializers_unchanged": true
+      },
+      {
+        "pass": "additive-mask",
+        "where": "node_masked_fill",
+        "bias": "opif_additive_mask_0",
+        "masked_elements": 41328,
+        "exact_for_finite_scores": true
+      },
+      {
+        "pass": "additive-mask",
+        "where": "node_masked_fill_1",
+        "bias": "opif_additive_mask_0",
+        "masked_elements": 41328,
+        "exact_for_finite_scores": true
+      },
+      {
+        "pass": "additive-mask",
+        "where": "node_masked_fill_2",
+        "bias": "opif_additive_mask_0",
+        "masked_elements": 41328,
+        "exact_for_finite_scores": true
+      },
+      {
+        "pass": "additive-mask",
+        "where": "node_masked_fill_4",
+        "bias": "opif_additive_mask_0",
+        "masked_elements": 41328,
+        "exact_for_finite_scores": true
+      },
+      {
+        "pass": "additive-mask",
+        "where": "node_masked_fill_5",
+        "bias": "opif_additive_mask_0",
+        "masked_elements": 41328,
+        "exact_for_finite_scores": true
+      },
+      {
+        "pass": "additive-mask",
+        "where": "node_masked_fill_6",
+        "bias": "opif_additive_mask_0",
+        "masked_elements": 41328,
+        "exact_for_finite_scores": true
+      },
+      {
+        "pass": "pixel-qdq",
+        "routed_nodes": [
+          "node_slice_1",
+          "node_unsqueeze",
+          "node_cat",
+          "node_select",
+          "node_slice_3",
+          "node__unsafe_view",
+          "node_select_1",
+          "node_slice_4",
+          "node__unsafe_view_1",
+          "node_cat_2",
+          "node__to_copy_4"
+        ],
+        "scale": 1,
+        "zero_point": 0,
+        "network_weights_quantized": false,
+        "pixel_values_exact": true
+      }
+    ],
+    "app_language": "Kotlin",
+    "kotlin_version": "2.4.20",
+    "jni_abi_verified": true,
+    "d8_version": "9.1.43",
+    "kotlin_runtime_jars": [
+      "kotlin-stdlib.jar",
+      "annotations-13.0.jar"
+    ],
+    "signature_verified": true,
+    "zip_alignment_verified": true,
+    "device_run_verified": false
+  },
+  "protocol": {
+    "fixture": "synthetic acceleration; real production TCP/OPIF server",
+    "cases": [
+      {
+        "encoding": 0,
+        "queue_us_second": 64512,
+        "positive_queue": true,
+        "nonfinite_hidden_rejected": true,
+        "replay_identical": true,
+        "payload_bytes": 73808
+      },
+      {
+        "encoding": 2,
+        "queue_us_second": 66262,
+        "positive_queue": true,
+        "nonfinite_hidden_rejected": true,
+        "replay_identical": true,
+        "payload_bytes": 8272
+      }
+    ],
+    "compact_exact_bytes": true,
+    "passed": true,
+    "command": "python3 android/e2e/protocol_roundtrip.py --out <directory>",
+    "source_hashes": {
+      "native/opif_protocol.cpp": "950dd13a88d2a99e897ae5297e79e1a139720e266fc2574eacdeb9b9f40df49c",
+      "e2e/protocol_fixture.cpp": "194e360871df17de86d48f15a800b1df8928fe2c17794c4869d1a6e4a1b58aa4"
+    }
+  },
+  "preview": {
+    "passed": true,
+    "rejected_cases": 7,
+    "source": "synthetic UDP frame metadata; production Kotlin geometry",
+    "polygon_points": [
+      66,
+      66
+    ]
+  },
+  "asynchronous_baseline": {
+    "passed": false,
+    "matched_pairs": 0,
+    "route20hz": 40,
+    "input10hz": 20,
+    "input_completion_delay_ms": 75,
+    "metadata_mismatch": false,
+    "publication_reversed": false,
+    "fixture": "real UDP and production InputPreview; Android/JNI synthetic substitutes",
+    "input_preview_sha256": "4a08913936855e74681ace9a4305a93966ae8299b0ede6f19db08b2cf4e1f1b3"
+  },
+  "asynchronous_fixed": {
+    "passed": true,
+    "matched_pairs": 20,
+    "route20hz": 40,
+    "input10hz": 20,
+    "input_completion_delay_ms": 75,
+    "metadata_mismatch": false,
+    "publication_reversed": false,
+    "fixture": "real UDP and production InputPreview; Android/JNI synthetic substitutes"
+  },
+  "source_sha256": {
+    "android/native/qnn_runtime.cpp": "573aff288c80cabb652059afab1c729ed4cbe06ac4bd09ba2e20288745a495f0",
+    "android/native/opif_protocol.cpp": "950dd13a88d2a99e897ae5297e79e1a139720e266fc2574eacdeb9b9f40df49c",
+    "android/native/qnn_runtime.h": "1b012c99e279823cfd58ba745c96252ba3e085b6ef1cf8a455e999f73834a602",
+    "android/native/jni_bridge.cpp": "fe263d0644542021300087e2eec3c2c3c00ffb9fd031c01f870c497702435b79",
+    "android/native/opif_protocol.h": "3ec63a372ace476e74aabe05101b9f5981535843a72582acc76a6b8acdd6ee98",
+    "android/native/preview.h": "bf38c04286c9bd2ac08165e1ef8778ef788f0191940f57bba5f9fa75420a9a68",
+    "android/native/main.cpp": "426c04cce378f1a1a5e923d3c12c62ebedf9432003795ec9e9170317f139604a",
+    "android/native/qnn_context_cache.h": "ad7de79735ded8d9fd63ae870038296c786f0d1e0d97fb8f4f74ba6380fbcebe",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/SpPath.kt": "6535a045d8d5a1b2b820a7490fa8f0c14f72f9eab6d5b1b7a5b63bdbf1eb480b",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/MainActivity.kt": "4cc9b8272c55b3ae5392898f2bbb734dbe2e33026ee3cd2fce3e5af758f521d7",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/ServerStatus.kt": "97dd5ec6841d59fc7fbed9b8cffd132d1d873e4a0788cf3a449717e0cc0246d6",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/ListenTransport.kt": "8b5a8aeb996223c33606a7d6886fdacb8660d14152e76e450ec1d37569327977",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/InputPreview.kt": "aea6de79a5ae6ac58132d46a85db6d5ab378837c26035d446eba4f652da14dee",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/SecureOpif.kt": "95cea4fb33e398690aa9b2d81edac3e765fc97cc9de263f8ffb89bf94b8f658b",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/NativeBridge.kt": "65ca247aa8a4444f1b1d7ee708f4fea4639cb94b27997ff2c3210b2231e012ea",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/PerformanceHistory.kt": "79d7655aa3234059e216db14aefbc2a3fb2064b608fcb9792cf2ac52c0762729",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/ModelInstaller.kt": "cad2ca809557ee3a9d640f89980a6397fdc2041d05582014e808b6f611d05b8f",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/SpPreviewView.kt": "60fd2a61da9b05e7f30e6dd26eef6e9e36a980498c70ec8ec9cb2feec0fcaad7",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/QnnCache.kt": "db5ee2e7adf12d567b3d4c526fd0b16af71de080623db5fc20dd42b48eaaa4df",
+    "android/app/src/main/kotlin/com/example/openpilotinference/android/InferenceService.kt": "35a1b75ab83071ac3d1813aa27e04c8de318fc1a9a4ec439e7e48422618abebc",
+    "android/app/src/main/AndroidManifest.xml": "da96565e3c2fda67f490b5c9f777444f3bfc7acf7e56ca00254497c720c5ffad",
+    "android/scripts/build_apk.py": "f4b3deceb7356fe871bcbfd79280f56a55733f534d6aed7105fe7abee3398043",
+    "android/e2e/preview_async_fixture.kt": "7481a6fc6992007e463a9b6827f5bbb87b2fef732700a3eef80eb616b7741536",
+    "android/e2e/preview_roundtrip.py": "1394c01f82f4193928e5e22144627504fb8f3a965d92c6bb6f71b7b05e2b3d21",
+    "android/e2e/protocol_fixture.cpp": "194e360871df17de86d48f15a800b1df8928fe2c17794c4869d1a6e4a1b58aa4",
+    "android/e2e/sp_path_fixture.kt": "7756323c60e84fe3b5a6a554c2fff8f0e39cff580c18cf24a012929c1c902e80",
+    "android/e2e/preview_async_roundtrip.py": "776e10f2fd57b403144068734fef721fffc43805d0bf6b24e4a83e30b2a2761c",
+    "android/e2e/protocol_roundtrip.py": "17fc98980055e04b8c76279576d6fa279df4f6fe9010ecf639b57292e5d1d5f1",
+    "android/e2e/preview_stubs/Process.kt": "1d4d1c969fa8e1e7156f23e36645c2bdab8fcd39576950f37f0dc59ee57ea6f3",
+    "android/e2e/preview_stubs/Bitmap.kt": "44e6fb46f749d1df6097806452e9cfab8097014a29babc5096c72148db24c023",
+    "android/e2e/preview_stubs/NativeBridge.kt": "e11d419ac72e9fa8c45613bedfadd15287668b4d7cd632717846841e671b65b9",
+    "android/e2e/preview_stubs/JSONObject.kt": "ea6ab5b9752bb59397503b73a288fe854d30f63232ac61a4ceb5587306c421b7"
+  },
+  "device_pending": [
+    "real QNN full/compact kept-byte conservation",
+    "actual SP route same-image UI/dumpsys draw evidence",
+    "preview on/off latency",
+    "C3 actuator-isolated integrated replay"
+  ]
+}

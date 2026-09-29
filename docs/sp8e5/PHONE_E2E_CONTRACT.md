@@ -1,0 +1,19 @@
+# Real-phone acceptance replay contract (before implementation)
+
+`phone_e2e.py` is an opt-in device tool; authoring or importing it must not connect to a phone or mutate Params. The root task serializes actual device runs.
+
+Failures to detect and retain: unsafe/stale Panda or device state; connected harness, ignition or controls becoming active; wrong Params namespace; real control requested; unsupported NPZ layout/dtype; existing output directory; readiness/profile/schema/identity mismatch; changed source/session during a run; queue bound, dropped/late/missing/nonfinite results; pacing falling behind by a frame; raw-recorder overflow/failure; deadline exhaustion; full/compact mismatch including pad bytes; incomplete cleanup. A failed run must still leave its report, frame/terminal logs, raw outputs already received and exact input/source hashes.
+
+Replay fixed `new_img` uint8 [2,6,128,256] from `/data/qnn-host/deploy-20260926-opif/current-input.npz`. Scalars are little-endian float32 desire=zeros(8), traffic=[1,0], action_t=[0.1,0.2]. Use a fresh production OPIF session per schema, default 200 frames at 20 Hz. Do not sleep to guess phone readiness; use the protocol handshake and bounded waits. Hold exclusive_probe throughout both sessions so discovery cannot probe between them. No camera or vehicle messages are published.
+
+The real guard reads the unprefixed Params and fresh Panda/deviceState continuously. It requires offroad, disengaged, ignition off, noOutput, harness notConnected, controls disallowed and remote-control requests false. No bypass flags. The original profile is read and copied; host/schema overrides affect memory only.
+
+Retain each received raw output before AsyncSession can discard expired publication results, using a bounded background recorder so raw disk writes do not occur on the receive thread. Keep separate receive and consumer times. Compare frame N of two freshly reset sessions, byte for byte, over heads [0:2066] and pad [18450:18452]. Compact bytes must be exactly those 8272 bytes; hidden omission is not a numeric approximation. Report model output equivalence separately from deadline/drop success. Synthetic replay EOF is the time of submission preparation, not a camera measurement.
+
+The report must contain raw SHA256/finite checks, actual session IDs/epochs, each submit/receive/terminal, actual phone inference and queue timings, receive/consume age percentiles, pacing, missing/expired counts, control and physical guard receipts, source/input hashes and cleanup results. A single-schema run cannot claim full/compact equivalence.
+
+## Explicit production radio lease (extension before implementation)
+
+The initial USB comparison passed both 200-frame sessions. The recorded Wi-Fi run without a lease passed full output, then the compact session observed a 200.499-ms first result and exhausted its four-frame window. Do not change its evidence or relax the deadline. Add an opt-in `--wifi-power-lease` matching production QnnModel's existing WifiPowerLease; default off preserves the original replay conditions.
+
+Additional failures: guard becomes unsafe before acquisition; another lease owns the radio; helper missing/permission denied; READY or off readback fails; unsafe guard/session exception/signal occurs while owned; close/restore times out or restores a different power-save state; an old status record is mistaken for this owner's restore proof. Acquire only inside exclusive_probe after a fresh physical check, hold the lease across both schema sessions, and restore in finally before releasing exclusive ownership. Capture before/active/after power state, guard/helper identity, owner PID, restore target/result and the exact temporary scope. Restoration must run even when inference fails; acquisition/restoration failures must produce failed reports. No persistent profile or Params writes, no endpoint change and no larger frame-age budget.

@@ -20,6 +20,7 @@ from openpilot.selfdrive.car.car_events import CarEvents
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 from openpilot.selfdrive.selfdrived.events import Events, ET
 from openpilot.selfdrive.selfdrived.helpers import ExcessiveActuationCheck
+from openpilot.selfdrive.selfdrived.model_failure_gate import big_model_failed
 from openpilot.selfdrive.selfdrived.state import StateMachine
 from openpilot.selfdrive.selfdrived.alertmanager import AlertManager, set_offroad_alert
 
@@ -206,8 +207,13 @@ class SelfdriveD(CruiseHelper):
 
     big_active = self.params.get("ChestnutActive")
     chestnut_present = self.sm['deviceState'].chestnutPresent
-    model_unavailable = big_active is True and self.sm.seen['modelV2'] and not self.sm.alive['modelV2']
-    big_failed = big_active is False or model_unavailable or (self.big_model_active and not chestnut_present)
+    # A healthy local bridge is degraded while QNN is qualifying, but a lost
+    # model message is always a fault.  The selected runtime phase is written
+    # by modeld after it chooses an output.
+    model_unavailable = self.sm.seen['modelV2'] and not self.sm.alive['modelV2']
+    big_failed = big_model_failed(big_active, model_unavailable, self.big_model_active, chestnut_present,
+                                  self.params.get_bool("C3XLExternalCTMControl"),
+                                  self.params.get("C3XLQnnRuntimePhase"))
     if big_failed and not self.big_model_failed:
       self.events.add(EventName.bigModelFailed)
     self.big_model_failed = big_failed

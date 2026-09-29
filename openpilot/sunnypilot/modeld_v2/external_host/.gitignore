@@ -1,0 +1,2 @@
+# Device-built nl80211 helper; its source is compiled by opif/SConscript.
+wifi_power_ctl
