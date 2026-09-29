@@ -11,6 +11,10 @@ class HistoryResetRequired(HostError):
   """An input was not executed on the required sequence/cadence."""
 
 
+class TransientBackpressure(HostError):
+  """Local admission is full; drop this frame without resetting the transport."""
+
+
 class FatalModelFault(HostError):
   """Model identity, schema, output or protocol integrity was not valid."""
 

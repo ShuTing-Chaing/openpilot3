@@ -20,6 +20,7 @@ class Frame:
   action_t: tuple[float, float] = (0., 0.)
   timestamp_ns: int = 0
   context: object = None
+  reset_temporal: bool = False
 
 
 @dataclass
@@ -73,7 +74,7 @@ class Pipeline:
     if len(frame.tensor) != self.session.tensor_bytes:
       raise ValueError("incorrect current6 tensor size")
     prefix = wire.INFERENCE_PREFIX_STRUCT.pack(
-      int(self.session.layout), 0, frame.desire, frame.traffic, int(self.next_id == 1),
+      int(self.session.layout), 0, frame.desire, frame.traffic, int(self.next_id == 1 or frame.reset_temporal),
       *frame.action_t, frame.timestamp_ns, len(frame.tensor), len(frame.tensor))
     request = wire.encode_message(wire.MessageType.INFERENCE_REQUEST, self.session.session_id,
                                   self.next_id, prefix + frame.tensor, self.session.maximum_datagram_bytes)

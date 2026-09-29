@@ -201,8 +201,17 @@ class QnnHotStandby:
       identity = (event.get('opif_session_id'), event.get('state_epoch'))
       if self.history_identity is None:
         self.history_identity = identity
-      if identity != self.history_identity:
-        raise HostError('Remote execution history epoch changed without requalification')
+      elif identity != self.history_identity:
+        if event.get('soft_reset') is not True:
+          raise HostError('Remote execution history epoch changed without requalification')
+        self.history_identity = identity
+      if event.get('soft_reset') is True:
+        # The client-side admission window requested RESET_TEMPORAL on the
+        # existing TCP session. Accept that sanctioned reset while preserving
+        # the transport and restarting only continuity/qualification.
+        self.last_remote_seq = self.last_remote_frame = None
+        self.good_frames = 0
+        self.last_eligible_at = None
       seq, frame = event['seq'], event['frame_id']
       if event['terminal'] not in ('executed', 'expired'):
         raise HostError('Remote input execution was not confirmed')

@@ -8,7 +8,7 @@ import numpy as np
 
 from .session import AsyncSession
 from .wire import HostError
-from .faults import TransportUnavailable, HistoryResetRequired
+from .faults import TransportUnavailable, HistoryResetRequired, TransientBackpressure
 from .qnn_reconnect import RecoveryWorker
 
 SOURCE_SHA = '404a18cfd86d29637d20c697dfde245bb47c666ae016730ab674c65f4d1e1aa4'
@@ -295,13 +295,10 @@ def create_model(base_class, config_path, cam_w, cam_h, progress=None):
           raise HostError('QNN preprocessing exceeded the capture deadline')
         try:
           self.async_session.submit(meta.frame_id, meta.timestamp_eof, pixels.tobytes(), scalars, context)
-        except HistoryResetRequired:
-          # A full local admission window is transient backpressure, not a
-          # transport failure. Keep the TCP session alive and drop this frame;
-          # the next frame can use the freed sequence slot without making the
-          # phone UI report a disconnect/reconnect cycle.
-          if self.async_session.error is not None or self.async_session.stopped:
-            raise
+        except TransientBackpressure:
+          # Local admission pressure is not a transport fault. The session
+          # keeps its TCP connection and schedules a RESET_TEMPORAL bit on the
+          # first frame submitted after the old in-flight window drains.
           if after_enqueue:
             after_enqueue()
           return None

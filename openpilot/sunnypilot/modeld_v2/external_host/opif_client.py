@@ -112,7 +112,7 @@ class OpifLink:
       self.close()
       raise classify(error) from error
 
-  def submit(self, frame_id, eof, pixels, scalars):
+  def submit(self, frame_id, eof, pixels, scalars, reset_temporal=False):
     if self.error is not None:
       raise self.error
     if not self.ready or self.stopped.is_set():
@@ -140,7 +140,7 @@ class OpifLink:
       self.sent[seq] = (int(frame_id), int(eof), captured)
       if self.stage_enabled:
         self.stages[seq] = {'t_link_submit_ns': time.clock_gettime_ns(time.CLOCK_BOOTTIME)}
-    frame = Frame(bytes(pixels), captured, desire, traffic, tuple(values[10:]), int(eof), (seq, int(frame_id), int(eof)))
+    frame = Frame(bytes(pixels), captured, desire, traffic, tuple(values[10:]), int(eof), (seq, int(frame_id), int(eof)), bool(reset_temporal))
     try:
       self.pending.put_nowait(frame)
     except queue.Full as e:
@@ -180,7 +180,7 @@ class OpifLink:
               'runtime_identity_verified': False, 'result_schema': self.result_schema,
               'opif_session_id': self.pipeline.session.session_id, 'state_epoch': 1,
               'opif_state_epoch': 1, 'request_id': seq, 'opif_request_id': seq,
-              'frame_id': fid, 'eof_ns': eof,
+              'frame_id': fid, 'eof_ns': eof, 'soft_reset': bool(frame.reset_temporal),
               'terminal': 'expired' if time.monotonic() - frame.captured >= self.frame_timeout else 'executed'}
           if self.stage_enabled:
             stats.update(self.stages.pop(seq, {}))
