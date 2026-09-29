@@ -95,7 +95,7 @@ class ProcessOpifLink:
       self.close()
       raise classify(error) from error
 
-  def submit(self, frame_id, eof, pixels, scalars):
+  def submit(self, frame_id, eof, pixels, scalars, reset_temporal=False):
     if self.stopped.is_set() or self.proc.poll() is not None:
       raise TransportUnavailable('OPIF I/O process is stopped')
     if len(pixels) != 393216 or len(scalars) != 48 or frame_id < 0 or eof <= 0:
@@ -110,7 +110,8 @@ class ProcessOpifLink:
       with self.tx_lock:
         stage = {'t_parent_submit_ns': time.clock_gettime_ns(time.CLOCK_BOOTTIME)} if self.stage_enabled else {}
         if self.stage_enabled:self.stages[seq] = stage
-        send(self.conn, {'type': 'frame', 'seq': seq, 'frame_id': int(frame_id), 'eof_ns': int(eof), **stage}, bytes(scalars) + bytes(pixels))
+        send(self.conn, {'type': 'frame', 'seq': seq, 'frame_id': int(frame_id), 'eof_ns': int(eof),
+                         'reset_temporal': bool(reset_temporal), **stage}, bytes(scalars) + bytes(pixels))
         if self.stage_enabled:stage['t_parent_ipc_done_ns'] = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
     except Exception as error:
       self.error = error
@@ -218,7 +219,8 @@ def worker(fd):
         arrived = time.clock_gettime_ns(time.CLOCK_BOOTTIME) if stage_enabled else 0
         if header.get('type') != 'frame' or len(data) != 393264:
           raise QnnError('Invalid OPIF worker request')
-        seq = link.submit(header['frame_id'], header['eof_ns'], data[48:], data[:48])
+        seq = link.submit(header['frame_id'], header['eof_ns'], data[48:], data[:48],
+                          reset_temporal=bool(header.get('reset_temporal', False)))
         if stage_enabled:
           stages[seq] = {'t_parent_submit_ns': header['t_parent_submit_ns'], 't_worker_receive_ns': arrived}
         if seq != header.get('seq'):
