@@ -97,6 +97,14 @@ class _WebSocketClient:
     except asyncio.TimeoutError:
       raise _WebSocketError("连接或握手超时")
 
+  def _notify_closed(self):
+    """标记连接关闭并唤醒阻塞在 recv() 上的接收协程"""
+    self._closed = True
+    try:
+      self._recv_queue.put_nowait(("closed", ""))
+    except Exception:
+      pass
+
   async def _recv_loop(self):
     """持续读取 WebSocket 帧"""
     try:
@@ -123,7 +131,7 @@ class _WebSocketClient:
     except Exception as e:
       print(f"[C3] WebSocket 接收异常: {e}")
     finally:
-      self._closed = True
+      self._notify_closed()
 
   async def _read_frame(self):
     """读取一个 WebSocket 帧"""
@@ -162,6 +170,8 @@ class _WebSocketClient:
 
   async def send(self, text):
     """发送文本消息"""
+    if self._closed:
+      raise ConnectionError("连接已关闭")
     payload = text.encode("utf-8") if isinstance(text, str) else text
     await self._send_frame(0x1, payload)
 
@@ -198,6 +208,8 @@ class _WebSocketClient:
     try:
       while not self._closed:
         await asyncio.sleep(self.ping_interval)
+        if self._closed:
+          break
         self._pong_event.clear()
         await self._send_frame(0x9, b"")
         try:
@@ -210,12 +222,16 @@ class _WebSocketClient:
     except Exception as e:
       print(f"[C3] Ping 循环异常: {e}")
     finally:
-      self._closed = True
+      self._notify_closed()
 
   async def recv(self):
     """接收一条消息"""
-    while not self._closed:
+    if self._closed:
+      raise ConnectionError("连接已关闭")
+    while True:
       msg_type, text = await self._recv_queue.get()
+      if msg_type == "closed":
+        break
       if msg_type == "text":
         return text
     raise ConnectionError("连接已关闭")
@@ -231,7 +247,7 @@ class _WebSocketClient:
         break
 
   async def close(self):
-    self._closed = True
+    self._notify_closed()
     if self._writer:
       await self._send_close()
       try:
@@ -729,7 +745,17 @@ async def run():
               print(f"[C3] 处理消息出错: {e}")
               traceback.print_exc()
 
-        await asyncio.wait_for(asyncio.gather(heartbeat(), receiver()), timeout=65)
+        # 原为 wait_for(..., timeout=65)：每 65 秒强制取消 gather，导致设备「自杀式」周期断线重连（~66s 一次）
+        # 保活已由内部 heartbeat(5s) + WebSocket ping(20s/timeout15s) 兜底，无需外层硬超时。
+        # 任一协程结束都会取消另一协程，避免 receiver 卡住时 gather 永远不返回。
+        tasks = [asyncio.create_task(heartbeat()), asyncio.create_task(receiver())]
+        try:
+          await asyncio.gather(*tasks)
+        finally:
+          for task in tasks:
+            task.cancel()
+          await asyncio.gather(*tasks, return_exceptions=True)
+
 
     except (ConnectionError, OSError, _WebSocketError):
       print(f"[C3] 连接断开")
