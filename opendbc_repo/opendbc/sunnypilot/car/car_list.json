@@ -610,6 +610,14 @@
     ],
     "package": "Co-Pilot360 Assist+"
   },
+  "Ford Edge 2022 (Yaw Counter Step 1)": {
+    "platform": "FORD_EDGE_MK2_YAW1",
+    "make": "Ford",
+    "brand": "ford",
+    "model": "Edge 2022 (Yaw Counter Step 1)",
+    "year": [],
+    "package": "Co-Pilot360 Assist+"
+  },
   "Ford Escape 2020-22": {
     "platform": "FORD_ESCAPE_MK4",
     "make": "Ford",
