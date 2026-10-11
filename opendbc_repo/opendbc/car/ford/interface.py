@@ -68,7 +68,7 @@ class CarInterface(CarInterfaceBase):
       if len(fingerprint[CAN.camera]):
         if fingerprint[CAN.camera].get(0x3d6) != 8 or fingerprint[CAN.camera].get(0x186) != 8:
           carlog.error('dashcamOnly: SecOC is unsupported')
-          ret.dashcamOnly = True
+          ret.dashcamOnly = False
     else:
       # Lock out if the car does not have needed lateral and longitudinal control APIs.
       # Note that we also check CAN for adaptive cruise, but no known signal for LCA exists
@@ -76,13 +76,13 @@ class CarInterface(CarInterfaceBase):
       if pscm_config:
         if len(pscm_config.fwVersion) != 24:
           carlog.error('dashcamOnly: Invalid EPS FW version')
-          ret.dashcamOnly = True
+          ret.dashcamOnly = False
         else:
           config_tja = pscm_config.fwVersion[7]  # Traffic Jam Assist
           config_lca = pscm_config.fwVersion[8]  # Lane Centering Assist
           if config_tja != 0xFF or config_lca != 0xFF:
             carlog.error('dashcamOnly: Car lacks required lateral control APIs')
-            ret.dashcamOnly = True
+            ret.dashcamOnly = False
 
     # Auto Transmission: 0x732 ECU or Gear_Shift_by_Wire_FD1
     found_ecus = [fw.ecu for fw in car_fw]
