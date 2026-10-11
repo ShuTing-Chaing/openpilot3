@@ -49,6 +49,7 @@ class FordFlags(IntFlag):
   # Static flags
   CANFD = 1
   ALT_STEER_ANGLE = 2
+  YAW_COUNTER_STEP_1 = 4
 
 
 class RADAR:
@@ -127,6 +128,11 @@ class CAR(Platforms):
     [FordCarDocs("Ford Edge 2022")],
     CarSpecs(mass=1933, wheelbase=2.824, steerRatio=15.3),
     flags=FordFlags.ALT_STEER_ANGLE,
+  )
+  FORD_EDGE_MK2_YAW1 = FordPlatformConfig(
+    [FordCarDocs("Ford Edge 2022 (Yaw Counter Step 1)")],
+    CarSpecs(mass=1933, wheelbase=2.824, steerRatio=15.3),
+    flags=FordFlags.ALT_STEER_ANGLE | FordFlags.YAW_COUNTER_STEP_1,
   )
   FORD_ESCAPE_MK4 = FordPlatformConfig(
     [
