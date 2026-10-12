@@ -75,6 +75,7 @@ class SoftwareLayout(Widget):
     self._scroller = Scroller([
       self._onroad_label,
       self._version_item,
+      self._branch_btn,
       self._download_btn,
       self._install_btn,
     ], line_separator=True, spacing=0)
@@ -95,6 +96,9 @@ class SoftwareLayout(Widget):
     current_release_notes = (ui_state.params.get("UpdaterCurrentReleaseNotes") or b"").decode("utf-8", "replace")
     self._version_item.action_item.set_text(current_desc)
     self._version_item.set_description(current_release_notes)
+
+    # Branch switching is only available while offroad.
+    self._branch_btn.set_visible(ui_state.is_offroad())
 
     # Update download button visibility and state
     self._download_btn.set_visible(ui_state.is_offroad())

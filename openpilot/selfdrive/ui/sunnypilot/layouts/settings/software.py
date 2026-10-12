@@ -8,7 +8,6 @@ import subprocess
 
 from openpilot.selfdrive.ui.layouts.settings.software import SoftwareLayout
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.common.hardware import HARDWARE
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.multilang import tr, tr_noop
 from openpilot.system.ui.widgets import DialogResult
@@ -31,6 +30,7 @@ DESCRIPTIONS = {
 class SoftwareLayoutSP(SoftwareLayout):
   def __init__(self):
     super().__init__()
+    self._branch_btn.action_item.set_value(ui_state.params.get("UpdaterTargetBranch") or "sn-vip")
     self.disable_updates_toggle = toggle_item_sp(
       lambda: tr("Disable Updates"),
       description="",
@@ -51,26 +51,8 @@ class SoftwareLayoutSP(SoftwareLayout):
     gui_app.push_widget(dialog)
 
   def _on_select_branch(self):
-    current_git_branch = ui_state.params.get("GitBranch") or ""
-    branches_str = ui_state.params.get("UpdaterAvailableBranches") or ""
-    branches = [b for b in branches_str.split(",") if b]
-    current_target = ui_state.params.get("UpdaterTargetBranch") or ""
-    top_level_branches = [current_git_branch, "release-mici", "release-tizi", "staging", "dev", "master"]
-
-    if HARDWARE.get_device_type() == "tici":
-      top_level_branches = ["release-tici", "staging-tici"]
-      branches = [b for b in branches if b.endswith("-tici")]
-
-    top_level_nodes = [TreeNode(b, {'display_name': b}) for b in top_level_branches if b in branches]
-    remaining_branches = [b for b in branches if b not in top_level_branches]
-    prebuilt_nodes = [TreeNode(b, {'display_name': b}) for b in remaining_branches if b.endswith("-prebuilt")]
-    non_prebuilt_nodes = [TreeNode(b, {'display_name': b}) for b in remaining_branches if not b.endswith("-prebuilt")]
-
-    folders = [
-      TreeFolder("", top_level_nodes),
-      TreeFolder("Prebuilt Branches", prebuilt_nodes),
-      TreeFolder("Non-Prebuilt Branches", non_prebuilt_nodes),
-    ]
+    branch = "sn-vip"
+    current_target = ui_state.params.get("UpdaterTargetBranch") or branch
 
     def _on_branch_selected(result):
       if result == DialogResult.CONFIRM and self._branch_dialog is not None:
@@ -81,6 +63,7 @@ class SoftwareLayoutSP(SoftwareLayout):
           subprocess.run(["pkill", "-SIGUSR1", "-f", "openpilot.system.updated.updated"], check=False)
       self._branch_dialog = None
 
+    folders = [TreeFolder("", [TreeNode(branch, {'display_name': branch})])]
     self._branch_dialog = TreeOptionDialog(tr("Select a branch"), folders, current_target, "",
                                            on_exit=_on_branch_selected)
 
@@ -88,6 +71,7 @@ class SoftwareLayoutSP(SoftwareLayout):
 
   def _update_state(self):
     super()._update_state()
+    self._branch_btn.action_item.set_value(ui_state.params.get("UpdaterTargetBranch") or "sn-vip")
     show_advanced = ui_state.params.get_bool("ShowAdvancedControls")
     self.disable_updates_toggle.action_item.set_enabled(ui_state.is_offroad())
     self.disable_updates_toggle.set_visible(show_advanced)
