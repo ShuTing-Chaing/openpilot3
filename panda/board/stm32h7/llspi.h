@@ -1,10 +1,7 @@
-// master -> panda DMA start
-// cppcheck-suppress constParameterPointer ; RX DMA writes through addr after return
-void llspi_mosi_dma(uint8_t *addr, int len) {
-  // disable DMA + SPI
-  register_clear_bits(&(SPI4->CFG1), SPI_CFG1_RXDMAEN);
-  DMA2_Stream2->CR &= ~DMA_SxCR_EN;
-  register_clear_bits(&(SPI4->CR1), SPI_CR1_SPE);
+#pragma once
+
+// SPI4 NSS (chip select) is PE11
+#define SPI_CS_PIN 11U
 
 void spi_cs_rising(void);
 
