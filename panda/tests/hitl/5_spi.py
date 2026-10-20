@@ -1,10 +1,13 @@
 import binascii
 import pytest
 import random
+import struct
+import threading
+import time
 from unittest.mock import patch
 
 from panda import Panda
-from panda.python.spi import PandaProtocolMismatch, PandaSpiNackResponse
+from panda.python.spi import PandaSpiNackResponse, PandaSpiMissingAck, REQ_HEADER, CRC, SLAVE_READY, ACK, NACK, POLL
 
 
 class TestSpi:
@@ -46,12 +49,12 @@ class TestSpi:
     # controlRead + controlWrite
     p.health()
     p.can_clear(0)
-    assert spy.call_count == 2*2
+    assert spy.call_count == 2
 
     # bulkRead + bulkWrite
     p.can_recv()
     p.can_send(0x123, b"somedata", 0)
-    assert spy.call_count == 2*4
+    assert spy.call_count == 4
 
   def test_bad_header(self, mocker, p):
     with patch('panda.python.spi.SYNC', return_value=0):

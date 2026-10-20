@@ -122,6 +122,13 @@ static void tick_handler(void) {
 
   if (TICK_TIMER->SR != 0U) {
 
+    heartbeat_tick_counter += 1U;
+
+    // start the siren early on power loss
+    if ((controls_allowed_countdown > 0U) && (heartbeat_tick_counter > 2U) && (current_board->read_voltage_mV() < 6000U)) {
+      siren_countdown = 3U;
+    }
+
     // siren
     current_board->set_siren((loop_counter & 1U) && (siren_enabled || (siren_countdown > 0U)));
 
@@ -260,7 +267,7 @@ static void tick_handler(void) {
       ignition_can_cnt += 1U;
 
       // synchronous safety check
-      safety_tick(&current_safety_config);
+      safety_tick();
     }
 
     loop_counter++;
@@ -338,6 +345,14 @@ int main(void) {
   led_set(LED_RED, false);
   led_set(LED_GREEN, false);
   led_set(LED_BLUE, false);
+
+  if (fault_cookie == NMI_COOKIE) {
+    reset_flags |= HEALTH_FLAG_NMI_RESET;
+  }
+  if (fault_cookie == HARDFAULT_COOKIE) {
+    reset_flags |= HEALTH_FLAG_HARDFAULT_RESET;
+  }
+  fault_cookie = 0U;
 
   print("**** INTERRUPTS ON ****\n");
   enable_interrupts();
