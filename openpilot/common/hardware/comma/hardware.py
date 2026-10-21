@@ -415,9 +415,11 @@ class HardwareComma(HardwareBase):
     gpio_set(GPIO.STM_BOOT0, True)
     time.sleep(0.2)
     gpio_set(GPIO.STM_RST_N, False)
+    # BOOT0 is latched on the reset edge. Drop it after releasing reset so the
+    # SPI ROM bootloader responds; leaving it high breaks DFU enumeration.
+    time.sleep(0.1)
+    gpio_set(GPIO.STM_BOOT0, False)
     time.sleep(1)
-    # Keep BOOT0 high while the SPI ROM bootloader session runs; the custom
-    # SPI panda needs it held (matches the manual flash scripts).
 
   def booted(self):
     # this normally boots within 8s, but on rare occasions takes 30+s
