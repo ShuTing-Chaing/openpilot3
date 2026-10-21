@@ -227,24 +227,28 @@ class Panda:
     self._serial = serial
     self._connect_serial = serial
     self._handle_open = True
-    self.health_version, self.can_version = self.get_packets_versions()
-    logger.debug("connected")
+    try:
+      self.health_version, self.can_version = self.get_packets_versions()
+      logger.debug("connected")
 
-    # disable openpilot's heartbeat checks
-    if self._disable_checks:
-      self.set_heartbeat_disabled()
-      self.set_power_save(0)
+      # disable openpilot's heartbeat checks
+      if self._disable_checks:
+        self.set_heartbeat_disabled()
+        self.set_power_save(0)
 
-    # reset comms
-    self.can_reset_communications()
+      # reset comms
+      self.can_reset_communications()
 
-    # disable automatic CAN-FD switching
-    for bus in range(PANDA_CAN_CNT):
-      self.set_canfd_auto(bus, False)
+      # disable automatic CAN-FD switching
+      for bus in range(PANDA_CAN_CNT):
+        self.set_canfd_auto(bus, False)
 
-    # set CAN speed
-    for bus in range(PANDA_CAN_CNT):
-      self.set_can_speed_kbps(bus, self._can_speed_kbps)
+      # set CAN speed
+      for bus in range(PANDA_CAN_CNT):
+        self.set_can_speed_kbps(bus, self._can_speed_kbps)
+    except Exception:
+      self.close()
+      raise
 
   @property
   def spi(self) -> bool:
