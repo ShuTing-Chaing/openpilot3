@@ -13,8 +13,6 @@ from openpilot.common.swaglog import cloudlog
 from openpilot.sunnypilot.selfdrive.controls.lib.nnlc.helpers import get_nn_model_path
 from openpilot.sunnypilot.selfdrive.controls.lib.speed_limit.helpers import set_speed_limit_assist_availability
 
-from openpilot.sunnypilot.sunnylink.statsd import STATSLOGSP
-
 
 def _enforce_torque_lateral_control(CP: structs.CarParams, params: Params | None = None, enabled: bool = False) -> bool:
   if params is None:
@@ -94,12 +92,6 @@ def setup_interfaces(CI: CarInterfaceBase, params: Params | None = None) -> None
   _initialize_intelligent_cruise_button_management(CI.CP, CI.CP_SP, params)
   _initialize_torque_lateral_control(CI, CI.CP, enforce_torque, nnlc_enabled)
   _cleanup_unsupported_params(CI.CP, CI.CP_SP)
-
-  try:
-    STATSLOGSP.raw('sunnypilot.car_params', CI.CP.to_dict())
-  except RuntimeError:
-    pass  # to_dict fails on macOS due to library issues.
-  # STATSLOGSP.raw('sunnypilot_params.car_params_sp', CP_SP.to_dict()) # https://github.com/sunnypilot/opendbc/pull/361
 
 
 def initialize_params(params) -> list[dict[str, Any]]:
