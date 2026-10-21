@@ -10,6 +10,7 @@ from collections.abc import Callable
 import gc
 import os
 os.environ['GMMU'] = '0'
+os.environ.setdefault('AM_PERF_LEVEL', 'high')
 from tinygrad.device import Device
 import numpy as np
 import threading
