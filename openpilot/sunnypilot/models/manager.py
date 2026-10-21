@@ -85,28 +85,27 @@ class ModelManagerSP:
 
     return max(1, int(eta))  # Return at least 1 second if download is ongoing
 
-  def _get(self, url: str, session=None, stream: bool = True):
+  def _get(self, url: str):
     """GET with automatic fallback to the hf-mirror.com mirror."""
-    urls = [url]
-    mirror = _mirror_url(url)
-    if mirror != url:
-      urls.append(mirror)
     last_err = None
-    for u in urls:
+    for request_url in dict.fromkeys((url, _mirror_url(url))):
+      response = None
       try:
-        if session is not None:
-          return session.get(u, stream=stream, timeout=DOWNLOAD_TIMEOUT)
-        return requests.get(u, stream=stream, timeout=DOWNLOAD_TIMEOUT)
+        response = requests.get(request_url, stream=True, timeout=DOWNLOAD_TIMEOUT)
+        response.raise_for_status()
+        return response
       except Exception as e:
+        if response is not None:
+          response.close()
         last_err = e
-        cloudlog.warning(f"model download failed ({u}): {e}; trying next source")
+        cloudlog.warning(f"model download failed ({request_url}): {e}; trying next source")
     raise last_err
 
   async def _download_file(self, url: str, path: str, model) -> None:
     """Downloads a file with progress tracking"""
     self._download_start_times[model.fileName] = time.monotonic()
 
-    with self._get(url) as response:
+    with self._get(url) as response:  # noqa: ASYNC210
       response.raise_for_status()
       total_size = int(response.headers.get("content-length", 0))
       bytes_downloaded = 0
@@ -130,50 +129,6 @@ class ModelManagerSP:
     # Clean up start time after download completes
     del self._download_start_times[model.fileName]
 
-  async def _download_chunked(self, base_url: str, base_path: str, artifact, skip: frozenset[int] | set[int] = frozenset()) -> None:
-    from openpilot.common.file_chunker import get_chunk_name, get_manifest_path
-
-    num_chunks = len(artifact.chunks)
-    if num_chunks == 0:
-      raise ValueError("No chunks defined in artifact")
-
-    manifest_path = get_manifest_path(base_path)
-    self._download_start_times[artifact.fileName] = time.monotonic()
-
-    # Shared connection saves a TCP+TLS handshake per chunk.
-    # Keep sequential: the link saturates on one stream and Session is not thread-safe.
-    completed = len(skip)
-    with requests.Session() as session:
-      for i, _ in enumerate(artifact.chunks):
-        if i in skip:
-          continue
-        chunk_url = get_chunk_name(base_url, i, num_chunks)
-        chunk_path = get_chunk_name(base_path, i, num_chunks)
-        chunk_downloaded = 0
-        with self._get(chunk_url, session=session) as response:
-          response.raise_for_status()
-          chunk_size = int(response.headers.get("content-length", 0))
-          with open(chunk_path, 'wb') as f:  # noqa: ASYNC230
-            for data in response.iter_content(chunk_size=self._chunk_size):
-              f.write(data)
-              chunk_downloaded += len(data)
-              if self._download_interrupted():
-                raise DownloadCancelled("Download cancelled")
-              intra = chunk_downloaded / max(chunk_size, 1)
-              progress = min(99.0, ((completed + intra) / num_chunks) * 100)
-              artifact.downloadProgress.status = custom.ModelManagerSP.DownloadStatus.downloading
-              artifact.downloadProgress.progress = progress
-              artifact.downloadProgress.eta = self._calculate_eta(artifact.fileName, progress)
-              self._sync_artifact_progress(artifact)
-              self._report_status()
-        completed += 1
-
-    with open(manifest_path, 'w') as f:  # noqa: ASYNC230
-      f.write(str(num_chunks))
-    if os.path.isfile(base_path):  # noqa: ASYNC240
-      os.remove(base_path)
-    del self._download_start_times[artifact.fileName]
-
   async def _process_artifact(self, artifact, destination_path: str) -> None:
     if not artifact.downloadUri.uri:
       return None
@@ -186,28 +141,7 @@ class ModelManagerSP:
     full_path = os.path.join(destination_path, filename)
 
     try:
-      # progress counts only valid chunks so a resumed download continues the
-      # bar from where verification left it, instead of falling back to zero
-      is_cached = False
-      valid_chunks: set[int] = set()
-      if len(artifact.chunks) > 0:
-        from openpilot.common.file_chunker import get_chunk_name
-        num_chunks = len(artifact.chunks)
-        for i, chunk in enumerate(artifact.chunks):
-          if self._download_interrupted():
-            raise DownloadCancelled("Download cancelled")
-          if await verify_file(get_chunk_name(full_path, i, num_chunks), chunk.sha256):
-            valid_chunks.add(i)
-          artifact.downloadProgress.status = custom.ModelManagerSP.DownloadStatus.verifying
-          artifact.downloadProgress.progress = (len(valid_chunks) / num_chunks) * 100
-          self._sync_artifact_progress(artifact)
-          self._report_status()
-        is_cached = len(valid_chunks) == num_chunks
-      else:
-        if await verify_file(full_path, expected_hash):
-          is_cached = True
-
-      if is_cached:
+      if await verify_file(full_path, expected_hash):
         artifact.downloadProgress.status = custom.ModelManagerSP.DownloadStatus.cached
         artifact.downloadProgress.progress = 100
         artifact.downloadProgress.eta = 0
@@ -215,17 +149,9 @@ class ModelManagerSP:
         self._report_status()
         return
 
-      if len(artifact.chunks) > 0:
-        await self._download_chunked(url, full_path, artifact, skip=valid_chunks)
-        from openpilot.common.file_chunker import get_chunk_name
-        for i, chunk in enumerate(artifact.chunks):
-          chunk_path = get_chunk_name(full_path, i, len(artifact.chunks))
-          if not await verify_file(chunk_path, chunk.sha256):
-            raise ValueError(f"Hash validation failed for chunk {i+1} of {filename}")
-      else:
-        await self._download_file(url, full_path, artifact)
-        if not await verify_file(full_path, expected_hash):
-          raise ValueError(f"Hash validation failed for {filename}")
+      await self._download_file(url, full_path, artifact)
+      if not await verify_file(full_path, expected_hash):
+        raise ValueError(f"Hash validation failed for {filename}")
 
       artifact.downloadProgress.status = custom.ModelManagerSP.DownloadStatus.downloaded
       artifact.downloadProgress.progress = 100
@@ -234,7 +160,6 @@ class ModelManagerSP:
       self._report_status()
 
     except DownloadCancelled:
-      # a cancel keeps whatever is on disk: complete chunks resume the next attempt
       self._download_start_times.pop(artifact.fileName, None)
       artifact.downloadProgress.status = custom.ModelManagerSP.DownloadStatus.failed
       artifact.downloadProgress.eta = 0
@@ -246,9 +171,8 @@ class ModelManagerSP:
 
     except Exception as e:
       cloudlog.error(f"Error downloading {filename}: {str(e)}")
-      for f in [full_path] + [p for p in (os.path.join(destination_path, f) for f in os.listdir(destination_path)) if filename in p]:
-        if os.path.isfile(f):  # noqa: ASYNC240
-          os.remove(f)
+      if os.path.isfile(full_path):  # noqa: ASYNC240
+        os.remove(full_path)
       artifact.downloadProgress.status = custom.ModelManagerSP.DownloadStatus.failed
       artifact.downloadProgress.eta = 0
       self._sync_artifact_progress(artifact)
@@ -352,19 +276,15 @@ class ModelManagerSP:
         if get_selected_bundle(self.params, "chestnut") is not None and get_selected_bundle(self.params, "qcom") is None:
           if self.params.get("ModelManager_DownloadRef") is None:
             from openpilot.sunnypilot.models.model_name import DEFAULT_MODEL_REF
-            if DEFAULT_MODEL_REF:
-              self.params.put("ModelManager_DownloadRef", DEFAULT_MODEL_REF)
+            self.params.put("ModelManager_DownloadRef", DEFAULT_MODEL_REF)
 
-        # First-boot default: no qcom bundle selected -> auto-use the default
-        # model (DEFAULT_MODEL_REF, i.e. CD210) instead of falling back to the
-        # stock selfdrive modeld. Mirrors upstream: the default model runs on
-        # first boot without any user selection (downloaded once, then active).
+        # First boot on qcom: auto-download the default plain-artifact model so
+        # modeld_v2 can start without requiring a manual selection in the UI.
         if (get_selected_bundle(self.params, "qcom") is None
             and self.params.get("ModelManager_DownloadRef") is None
             and not self.chestnut_present):
           from openpilot.sunnypilot.models.model_name import DEFAULT_MODEL_REF
-          if DEFAULT_MODEL_REF:
-            self.params.put("ModelManager_DownloadRef", DEFAULT_MODEL_REF)
+          self.params.put("ModelManager_DownloadRef", DEFAULT_MODEL_REF)
 
         self._process_download_requests()
 
@@ -393,12 +313,11 @@ class ModelManagerSP:
           if model.artifact.fileName:
             active_files.append(model.artifact.fileName)
 
-    # Remove all files except active ones (including their chunk files)
+    # Remove all files except active ones
     model_dir = Paths.model_root()
     try:
       for filename in os.listdir(model_dir):
-        base = filename.split('.chunk')[0] if '.chunk' in filename else filename
-        if base not in active_files and filename not in active_files:
+        if filename not in active_files:
           file_path = os.path.join(model_dir, filename)
           if os.path.isfile(file_path):
             os.remove(file_path)

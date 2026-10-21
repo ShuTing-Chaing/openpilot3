@@ -16,7 +16,7 @@ from openpilot.common.hardware.hw import Paths
 from openpilot.selfdrive.modeld.helpers import chestnut_present
 
 # SET ME TO THE EXACT JSON VERSION WE SET IN SUNNYPILOT_MODELS REPO
-REQUIRED_JSON_VERSION = 20
+REQUIRED_JSON_VERSION = 21
 
 CUSTOM_MODEL_PATH = Paths.model_root()
 ModelManager = custom.ModelManagerSP
@@ -29,9 +29,8 @@ _LAST_VALIDATED_RAW: dict[str, dict | None] = {}
 
 
 def _compute_hash(file_path: str) -> str | None:
-  from openpilot.common.file_chunker import open_file_chunked
   try:
-    with open_file_chunked(file_path) as file:
+    with open(file_path, 'rb') as file:
       return hashlib.file_digest(file, "sha256").hexdigest().lower()
   except FileNotFoundError:
     return None
@@ -58,20 +57,11 @@ def is_bundle_version_compatible(bundle: dict) -> bool:
 
 def _bundle_artifacts(bundle: custom.ModelManagerSP.ModelBundle) -> list[tuple[str, str]]:
   artifacts = []
-  from openpilot.common.file_chunker import get_chunk_name
   for model in getattr(bundle, 'models', []) or []:
-    for artifact in (getattr(model, 'artifact', None),):
-      if artifact and getattr(artifact, 'fileName', None):
-        if len(artifact.chunks) > 0:
-          for i, chunk in enumerate(artifact.chunks):
-            chunk_name = get_chunk_name(artifact.fileName, i, len(artifact.chunks))
-            if getattr(chunk, 'sha256', None):
-              artifacts.append((chunk_name, chunk.sha256))
-        else:
-          if getattr(artifact, 'downloadUri', None):
-            sha256 = getattr(artifact.downloadUri, 'sha256', None)
-            if sha256:
-              artifacts.append((artifact.fileName, sha256))
+    artifact = getattr(model, 'artifact', None)
+    if artifact and getattr(artifact, 'fileName', None) and getattr(artifact, 'downloadUri', None):
+      if sha256 := getattr(artifact.downloadUri, 'sha256', None):
+        artifacts.append((artifact.fileName, sha256))
   return artifacts
 
 
@@ -175,24 +165,6 @@ def validate_active_bundles(params: Params, source_bundles: dict[str, list[custo
   get_active_model_runner(params, force_check=True)
 
 
-def _bundled_default_pkl_available() -> bool:
-  # the repo ships the default model (CD210) as driving_tinygrad.pkl chunks; only
-  # a real pkl or all chunk files count (a bare chunkmanifest does not)
-  from openpilot.common.file_chunker import get_chunk_name, get_manifest_path
-  from openpilot.selfdrive.modeld.helpers import modeld_pkl_path
-  path = str(modeld_pkl_path(chestnut=False))
-  if os.path.exists(path):
-    return True
-  manifest_path = get_manifest_path(path)
-  if not os.path.exists(manifest_path):
-    return False
-  try:
-    num_chunks = int(open(manifest_path).read().strip())
-  except Exception:
-    return False
-  return all(os.path.exists(get_chunk_name(path, i, num_chunks)) for i in range(num_chunks))
-
-
 def get_active_model_runner(params: Params | None = None, force_check: bool = False) -> int:
   params = params or Params()
   cached_runner_type = params.get("ModelRunnerTypeCache")
@@ -201,10 +173,6 @@ def get_active_model_runner(params: Params | None = None, force_check: bool = Fa
   runner_type = custom.ModelManagerSP.Runner.stock
   if active_bundle := get_active_bundle(params):
     runner_type = active_bundle.runner.raw
-  elif _bundled_default_pkl_available():
-    # no bundle selected: modeld_v2 runs the bundled default pkl (CD210), so it
-    # must not fall back to stock modeld (which expects a run_model-format pkl)
-    runner_type = custom.ModelManagerSP.Runner.tinygrad
 
   if cached_runner_type != runner_type:
     params.put("ModelRunnerTypeCache", int(runner_type), block=True)
