@@ -806,9 +806,6 @@ msgstr "启用此项以强制 sunnypilot 使用扭矩横向控制转向。"
 msgid "Enable your car's LKAS to engage"
 msgstr "请开启车辆的 LKAS 以启用"
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
-msgid "Enables or disables the GitHub runner service."
-msgstr "启用或禁用 GitHub runner 服务。"
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/toyota.py
 msgid "Enforce Factory Longitudinal Control"
@@ -945,9 +942,6 @@ msgstr "挡位不在 D 挡"
 msgid "Getting the big model ready."
 msgstr "正在准备大模型。"
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
-msgid "GitHub Runner Service"
-msgstr "GitHub Runner 服务"
 
 #: openpilot/selfdrive/ui/widgets/pairing_dialog.py
 msgid "Go to https://connect.comma.ai on your phone"
@@ -1303,9 +1297,6 @@ msgstr "行车亮度"
 msgid "Onroad Brightness Delay"
 msgstr "行车亮度延迟"
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
-msgid "Onroad Uploads"
-msgstr "行车上传"
 
 #: openpilot/selfdrive/ui/widgets/setup.py
 msgid "Open"

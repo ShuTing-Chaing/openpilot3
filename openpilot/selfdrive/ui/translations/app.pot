@@ -966,9 +966,6 @@ msgstr ""
 msgid "Training Guide"
 msgstr ""
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
-msgid "Onroad Uploads"
-msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
 msgid "Reset Settings"
@@ -1524,13 +1521,7 @@ msgstr ""
 msgid "Show Advanced Controls"
 msgstr ""
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
-msgid "GitHub Runner Service"
-msgstr ""
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
-msgid "Enables or disables the GitHub runner service."
-msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
 msgid "copyparty Service"

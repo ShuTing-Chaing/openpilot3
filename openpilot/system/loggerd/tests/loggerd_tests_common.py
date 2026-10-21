@@ -2,16 +2,13 @@ import os
 import random
 from pathlib import Path
 
-
 from openpilot.common.test import OpenpilotTestCase
-import openpilot.system.loggerd.deleter as deleter
-import openpilot.system.loggerd.uploader as uploader
-from openpilot.common.params import Params
 from openpilot.common.hardware.hw import Paths
+import openpilot.system.loggerd.deleter as deleter
 from openpilot.system.loggerd.xattr_cache import setxattr
 
 
-def create_random_file(file_path: Path, size_mb: float, lock: bool = False, upload_xattr: bytes | None = None) -> None:
+def create_random_file(file_path: Path, size_mb: float, lock: bool = False) -> None:
   file_path.parent.mkdir(parents=True, exist_ok=True)
 
   if lock:
@@ -26,64 +23,24 @@ def create_random_file(file_path: Path, size_mb: float, lock: bool = False, uplo
     for _ in range(chunks):
       f.write(data)
 
-  if upload_xattr is not None:
-    setxattr(str(file_path), uploader.UPLOAD_ATTR_NAME, upload_xattr)
 
-class MockResponse:
-  def __init__(self, text, status_code):
-    self.text = text
-    self.status_code = status_code
-
-class MockApi:
-  def __init__(self, dongle_id):
-    pass
-
-  def get(self, *args, **kwargs):
-    return MockResponse('{"url": "http://localhost/does/not/exist", "headers": {}}', 200)
-
-  def get_token(self):
-    return "fake-token"
-
-class MockApiIgnore:
-  def __init__(self, dongle_id):
-    pass
-
-  def get(self, *args, **kwargs):
-    return MockResponse('', 412)
-
-  def get_token(self):
-    return "fake-token"
-
-class UploaderTestCase(OpenpilotTestCase):
-  f_type = "UNKNOWN"
-
+class LoggerdTestCase(OpenpilotTestCase):
   root: Path
   seg_num: int
   seg_format: str
   seg_format2: str
   seg_dir: str
 
-  def set_ignore(self):
-    uploader.Api = MockApiIgnore  # ty: ignore[invalid-assignment]  # test double
-
   def setup_method(self):
-    uploader.Api = MockApi  # ty: ignore[invalid-assignment]  # test double
-    uploader.fake_upload = True
-    uploader.force_wifi = True
-    uploader.allow_sleep = False
     self.seg_num = random.randint(1, 300)
     self.seg_format = "00000004--0ac3964c96--{}"
     self.seg_format2 = "00000005--4c4e99b08b--{}"
     self.seg_dir = self.seg_format.format(self.seg_num)
 
-    self.params = Params()
-    self.params.put("IsOffroad", True, block=True)
-    self.params.put("DongleId", "0000000000000000", block=True)
-
   def make_file_with_data(self, f_dir: str, fn: str, size_mb: float = .1, lock: bool = False,
-                          upload_xattr: bytes | None = None, preserve_xattr: bytes | None = None) -> Path:
+                          preserve_xattr: bytes | None = None) -> Path:
     file_path = Path(Paths.log_root()) / f_dir / fn
-    create_random_file(file_path, size_mb, lock, upload_xattr)
+    create_random_file(file_path, size_mb, lock)
 
     if preserve_xattr is not None:
       setxattr(str(file_path.parent), deleter.PRESERVE_ATTR_NAME, preserve_xattr)

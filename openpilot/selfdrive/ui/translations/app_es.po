@@ -804,9 +804,6 @@ msgstr ""
 msgid "Enable your car's LKAS to engage"
 msgstr ""
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
-msgid "Enables or disables the GitHub runner service."
-msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/toyota.py
 msgid "Enforce Factory Longitudinal Control"
@@ -943,9 +940,6 @@ msgstr ""
 msgid "Getting the big model ready."
 msgstr ""
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
-msgid "GitHub Runner Service"
-msgstr ""
 
 #: openpilot/selfdrive/ui/widgets/pairing_dialog.py
 msgid "Go to https://connect.comma.ai on your phone"
@@ -1301,9 +1295,6 @@ msgstr ""
 msgid "Onroad Brightness Delay"
 msgstr ""
 
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
-msgid "Onroad Uploads"
-msgstr ""
 
 #: openpilot/selfdrive/ui/widgets/setup.py
 msgid "Open"
