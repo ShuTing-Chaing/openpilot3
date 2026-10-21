@@ -41,7 +41,7 @@ class GWMPlatformConfig(PlatformConfig):
 class CAR(Platforms):
   GWM_HAVAL_H6 = GWMPlatformConfig(
     [GWMCarDocs("Haval H6 2019-26")],
-    CarSpecs(mass=2040, wheelbase=2.738, steerRatio=17.416),
+    CarSpecs(wheelbase=2.738, steerRatio=17.416),
   )
 
 

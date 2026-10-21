@@ -48,11 +48,11 @@ class TeslaPlatformConfig(PlatformConfig):
 class CAR(Platforms):
   TESLA_MODEL_3 = TeslaPlatformConfig(
     [
-      # TODO: do we support 2017? It's HW3
+      TeslaCarDocsHW3("Tesla Model 3 (with HW2.5) 2019"),
       TeslaCarDocsHW3("Tesla Model 3 (with HW3) 2019-23"),
       TeslaCarDocsHW4("Tesla Model 3 (with HW4) 2024-25"),
     ],
-    CarSpecs(mass=1899., wheelbase=2.875, steerRatio=12.0),
+    CarSpecs(wheelbase=2.875, steerRatio=12.0),
     {Bus.party: 'tesla_model3_party', Bus.radar: 'tesla_radar_continental_generated', Bus.adas: 'tesla_model3_vehicle'},
   )
   TESLA_MODEL_Y = TeslaPlatformConfig(
@@ -60,12 +60,12 @@ class CAR(Platforms):
       TeslaCarDocsHW3("Tesla Model Y (with HW3) 2020-23"),
       TeslaCarDocsHW4("Tesla Model Y (with HW4) 2024-25"),
     ],
-    CarSpecs(mass=2072., wheelbase=2.890, steerRatio=12.0),
+    CarSpecs(wheelbase=2.890, steerRatio=12.0),
     {Bus.party: 'tesla_model3_party', Bus.radar: 'tesla_radar_continental_generated', Bus.adas: 'tesla_model3_vehicle'},
   )
   TESLA_MODEL_X = TeslaPlatformConfig(
     [TeslaCarHW4ModelSXDocs("Tesla Model X (with HW4) 2024")],
-    CarSpecs(mass=2495., wheelbase=2.960, steerRatio=12.0),
+    CarSpecs(wheelbase=2.960, steerRatio=12.0),
   )
 
 
@@ -131,11 +131,18 @@ class TeslaSafetyFlags(IntFlag):
   LONG_CONTROL = 1
   FSD_14 = 2
 
+  # deprecated flags
+  DAS_STEERING_3_BIT_DEPRECATED = 2
+
 
 class TeslaFlags(IntFlag):
   LONG_CONTROL = 1
   FSD_14 = 2
   MISSING_DAS_SETTINGS = 4
+
+  # deprecated flags
+  # old 2-bit FW is now dashcammed
+  DAS_STEERING_3_BIT_DEPRECATED = 2
 
 
 DBC = CAR.create_dbc_map()

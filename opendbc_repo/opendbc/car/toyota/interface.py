@@ -158,7 +158,6 @@ class CarInterface(CarInterfaceBase):
     if candidate == CAR.TOYOTA_PRIUS:
       if ret.flags & ToyotaFlagsSP.ZSS:
         stock_cp.steerRatio = 15.0
-        stock_cp.mass = 3370.
 
         # reuse logic from _get_params
         # Only give steer angle deadzone to for bad angle sensor prius
