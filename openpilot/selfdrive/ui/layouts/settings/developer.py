@@ -29,6 +29,9 @@ DESCRIPTIONS = {
     "Enabling Experimental mode is recommended when enabling sunnypilot longitudinal control alpha. " +
     "Changing this setting will restart sunnypilot if the car is powered on."
   ),
+  'navigation': tr_noop(
+    "Turn-by-turn navigation with a route map. Set a destination from comma connect."
+  ),
 }
 
 
@@ -86,6 +89,14 @@ class DeveloperLayout(Widget):
       enabled=lambda: not ui_state.engaged,
     )
 
+    self._navigation_toggle = toggle_item(
+      lambda: tr("Navigation (Alpha)"),
+      description=lambda: tr(DESCRIPTIONS["navigation"]),
+      initial_state=self._params.get_bool("NavigationEnabled"),
+      callback=self._on_navigation_enabled,
+      enabled=ui_state.is_offroad,
+    )
+
     self._ui_debug_toggle = toggle_item(
       lambda: tr("UI Debug Mode"),
       description="",
@@ -99,6 +110,7 @@ class DeveloperLayout(Widget):
       self._ssh_toggle,
       self._ssh_keys,
       self._alpha_long_toggle,
+      self._navigation_toggle,
     ], line_separator=True, spacing=0)
 
     # Toggles should be not available to change in onroad state
@@ -117,7 +129,8 @@ class DeveloperLayout(Widget):
 
     # Hide non-release toggles on release builds
     # TODO: we can do an onroad cycle, but alpha long toggle requires a deinit function to re-enable radar and not fault
-    for item in (self._joystick_toggle, self._long_maneuver_toggle, self._lat_maneuver_toggle, self._alpha_long_toggle):
+    for item in (self._joystick_toggle, self._long_maneuver_toggle, self._lat_maneuver_toggle,
+                 self._alpha_long_toggle, self._navigation_toggle):
       item.set_visible(not self._is_release)
 
     # CP gating
@@ -146,9 +159,13 @@ class DeveloperLayout(Widget):
       ("LongitudinalManeuverMode", self._long_maneuver_toggle),
       ("LateralManeuverMode", self._lat_maneuver_toggle),
       ("AlphaLongitudinalEnabled", self._alpha_long_toggle),
+      ("NavigationEnabled", self._navigation_toggle),
       ("ShowDebugInfo", self._ui_debug_toggle),
     ):
       item.action_item.set_state(self._params.get_bool(key))
+
+  def _on_navigation_enabled(self, state: bool):
+    self._params.put_bool("NavigationEnabled", state, block=True)
 
   def _on_enable_ui_debug(self, state: bool):
     self._params.put_bool("ShowDebugInfo", state, block=True)
