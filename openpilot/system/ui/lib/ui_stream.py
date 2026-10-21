@@ -24,15 +24,34 @@ class StreamState:
         self.frame = b""
         self.lock = threading.Lock()
         self.event = threading.Event()
+        self.clients = 0
+        self.snapshot_pending = False
 
     def update(self, jpeg):
         with self.lock:
             self.frame = jpeg
+            self.snapshot_pending = False
         self.event.set()
 
     def get(self):
         with self.lock:
             return self.frame
+
+    def client_enter(self):
+        with self.lock:
+            self.clients += 1
+
+    def client_exit(self):
+        with self.lock:
+            self.clients = max(0, self.clients - 1)
+
+    def request_snapshot(self):
+        with self.lock:
+            self.snapshot_pending = True
+
+    def has_demand(self):
+        with self.lock:
+            return self.clients > 0 or self.snapshot_pending
 
     def wait(self, t=2.0):
         self.event.wait(t)
@@ -237,6 +256,7 @@ class StreamHandler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
+            self.server._state.client_enter()
             try:
                 while True:
                     self.server._state.wait(2.0)
@@ -247,7 +267,11 @@ class StreamHandler(BaseHTTPRequestHandler):
                         self.wfile.write(b"\r\n")
             except (BrokenPipeError, ConnectionResetError):
                 pass
+            finally:
+                self.server._state.client_exit()
         elif self.path == "/snapshot":
+            self.server._state.request_snapshot()
+            self.server._state.wait(1.0)
             f = self.server._state.get()
             if f:
                 self.send_response(200)
@@ -423,6 +447,9 @@ def _encode_worker():
     raw, w, h, quality = item
     try:
       img = Image.frombytes("RGBA", (w, h), raw).transpose(Image.FLIP_TOP_BOTTOM).convert("RGB")
+      max_width = int(os.getenv("STREAM_MAX_WIDTH", "540"))
+      if img.width > max_width:
+        img.thumbnail((max_width, max_width * img.height // img.width), Image.Resampling.BILINEAR)
       buf = io.BytesIO()
       img.save(buf, "JPEG", quality=quality)
       if _state is not None:
@@ -503,7 +530,7 @@ def capture_frame(app, quality=50, target_fps=10):
     _app = app
   """Call from the render loop: snapshot texture, queue raw for async JPEG encode."""
   global _counter
-  if _state is None or app._render_texture is None:
+  if _state is None or app._render_texture is None or not _state.has_demand():
     return
   _counter += 1
   skip = max(1, int(getattr(app, "_target_fps", 60)) // max(1, int(target_fps)))

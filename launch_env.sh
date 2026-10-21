@@ -15,6 +15,9 @@ export VECLIB_MAXIMUM_THREADS=1
 # headroom for this until ui is moved to the CPU.
 export QCOM_PRIORITY=12
 
+# C3XL panel runs at ~31.6Hz; targeting 60 causes constant false FPS warnings.
+export FPS=30
+
 if [ -z "$AGNOS_VERSION" ]; then
   export AGNOS_VERSION="19.7-c3xl-dev"
 fi
@@ -24,8 +27,9 @@ export STAGING_ROOT="/data/safe_staging"
 # Comma4-UI-Streamer (MJPEG UI stream) - set STREAM=0 to disable
 export STREAM=1
 export STREAM_PORT=8082
-export STREAM_QUALITY=50
-export STREAM_FPS=10
+export STREAM_QUALITY=40
+export STREAM_FPS=5
+export STREAM_MAX_WIDTH=540
 
 # --- system time (this hardware has no battery-backed RTC) ---
 # On a cold boot there is no sane clock: AGNOS restores a stale timestamp (or the epoch),
