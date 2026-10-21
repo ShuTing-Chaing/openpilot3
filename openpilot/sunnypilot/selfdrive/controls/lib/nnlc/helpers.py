@@ -21,6 +21,10 @@ def similarity(s1: str, s2: str) -> float:
 
 
 def get_nn_model_path(CP: structs.CarParams) -> tuple[str, str, bool]:
+  # this fork does not ship the NNLC torque model data; treat it as no model match
+  if not os.path.isdir(TORQUE_NN_MODEL_PATH):
+    return "", "MOCK", False
+
   car_fingerprint = CP.carFingerprint
   eps_fw = str(next((fw.fwVersion for fw in CP.carFw if fw.ecu == "eps"), ""))
 
