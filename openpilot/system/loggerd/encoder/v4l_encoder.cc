@@ -87,6 +87,9 @@ void V4LEncoder::dequeue_handler(V4LEncoder *e) {
   // save the header
   kj::Array<capnp::byte> header;
 
+  long long timeout_start_ms = 0;
+  bool timed_out = false;
+
   while (!exit) {
     int rc = poll(&pfd, 1, 1000);
     if (rc < 0) {
@@ -97,8 +100,20 @@ void V4LEncoder::dequeue_handler(V4LEncoder *e) {
       }
       continue;
     } else if (rc == 0) {
-      LOGE("encoder dequeue poll timeout");
+      const long long now_ms = millis_since_boot();
+      if (!timed_out) {
+        timeout_start_ms = now_ms;
+        timed_out = true;
+      } else if (now_ms - timeout_start_ms >= 5000) {
+        LOGE("encoder dequeue stalled for %lld ms", now_ms - timeout_start_ms);
+        timeout_start_ms = now_ms;
+      }
       continue;
+    }
+
+    if (timed_out) {
+      LOGW("encoder dequeue recovered after %lld ms", (long long)(millis_since_boot() - timeout_start_ms));
+      timed_out = false;
     }
 
     if (env_debug_encoder >= 2) {
