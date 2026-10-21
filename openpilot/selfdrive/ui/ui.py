@@ -7,7 +7,6 @@ from openpilot.common.hardware import COMMA_HARDWARE
 from openpilot.common.realtime import Priority, config_realtime_process, set_core_affinity
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.selfdrive.ui.layouts.main import MainLayout
-from openpilot.selfdrive.ui.mici.layouts.main import MiciMainLayout
 from openpilot.selfdrive.ui.ui_state import ui_state
 
 BIG_UI = gui_app.big_ui()
@@ -22,6 +21,7 @@ def main():
   if BIG_UI:
     MainLayout()
   else:
+    from openpilot.selfdrive.ui.mici.layouts.main import MiciMainLayout
     MiciMainLayout()
 
   pm = messaging.PubMaster(['uiDebug'])
