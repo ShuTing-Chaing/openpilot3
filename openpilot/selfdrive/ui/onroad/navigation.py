@@ -6,13 +6,13 @@ from openpilot.cereal.visionipc import VisionStreamType
 from openpilot.common.constants import CV
 from openpilot.selfdrive.navigation.helpers import latest_gps_source
 from openpilot.selfdrive.navigation.renderer import EGO, ROUTE_INTENSITY, SIZE
-from openpilot.selfdrive.ui.mici.onroad.cameraview import CONNECTION_RETRY_INTERVAL
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import FontWeight, TextAlignmentVertical
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.label import UnifiedLabel, gui_label
 
 PANEL_WIDTH = 261
+CONNECTION_RETRY_INTERVAL = 1.0
 STALE_SECONDS = 3
 MARKER_MARGIN = 18  # pixels kept below the ego so its marker stays visible
 
