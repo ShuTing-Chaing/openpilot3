@@ -87,13 +87,17 @@ class PandaDFU:
 
   @staticmethod
   def spi_list() -> list[str]:
+    handle = None
     try:
-      _, h = PandaDFU.spi_connect(None)
-      if h is not None:
-        dfu_serial = PandaDFU.st_serial_to_dfu_serial(h.get_uid(), h.get_mcu_type())
+      _, handle = PandaDFU.spi_connect(None)
+      if handle is not None:
+        dfu_serial = PandaDFU.st_serial_to_dfu_serial(handle.get_uid(), handle.get_mcu_type())
         return [dfu_serial, ]
     except PandaSpiException:
       pass
+    finally:
+      if handle is not None:
+        handle.close()
     return []
 
   @staticmethod

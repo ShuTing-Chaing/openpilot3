@@ -345,10 +345,12 @@ class Panda:
 
   @classmethod
   def spi_list(cls):
-    _, _, serial, _ = cls.spi_connect(None)
-    if serial is not None:
-      return [serial, ]
-    return []
+    _, handle, serial, _ = cls.spi_connect(None)
+    try:
+      return [serial, ] if serial is not None else []
+    finally:
+      if handle is not None:
+        handle.close()
 
   def reset(self, enter_bootstub=False, enter_bootloader=False, reconnect=True):
     if enter_bootstub or enter_bootloader:
