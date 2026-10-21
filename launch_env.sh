@@ -24,13 +24,6 @@ fi
 
 export STAGING_ROOT="/data/safe_staging"
 
-# Comma4-UI-Streamer (MJPEG UI stream) - set STREAM=0 to disable
-export STREAM=1
-export STREAM_PORT=8082
-export STREAM_QUALITY=40
-export STREAM_FPS=5
-export STREAM_MAX_WIDTH=540
-
 # --- system time (this hardware has no battery-backed RTC) ---
 # On a cold boot there is no sane clock: AGNOS restores a stale timestamp (or the epoch),
 # which is still far earlier than the TLS certificate validity and makes the model
