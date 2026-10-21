@@ -87,10 +87,9 @@ class CarInterface(CarInterfaceBase):
     # TODO: Some TSS-P platforms have BSM, but are flipped based on region or driving direction.
     # Detect flipped signals and enable for C-HR and others
     from openpilot.common.params import Params
-    if Params().get_bool("ToyotaAftermarketBsm"):
-      ret.enableBsm = False  # aftermarket BSM: disable factory BSM enablement
-    else:
-      ret.enableBsm = 0x3F6 in fingerprint[0] and bool(ret.flags & ToyotaFlags.TSS2)
+    aftermarket_bsm = Params().get_bool("ToyotaAftermarketBsm")
+    if not aftermarket_bsm and 0x3F6 in fingerprint[0] and ret.flags & ToyotaFlags.TSS2:
+      ret.flags |= ToyotaFlags.HAS_BSM.value
 
     # No radar dbc for cars without DSU which are not TSS 2.0
     # TODO: make an adas dbc file for dsu-less models

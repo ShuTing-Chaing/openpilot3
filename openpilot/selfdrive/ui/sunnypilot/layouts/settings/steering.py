@@ -8,6 +8,7 @@ from opendbc.car.structs import car
 from enum import IntEnum
 
 from openpilot.selfdrive.ui.ui_state import ui_state
+from opendbc.sunnypilot.car.interfaces import has_bsm
 from openpilot.system.ui.lib.multilang import tr, tr_noop
 from openpilot.system.ui.sunnypilot.widgets.list_view import toggle_item_sp, simple_button_item_sp, option_item_sp, LineSeparatorSP
 from openpilot.system.ui.widgets.scroller_tici import Scroller
@@ -134,7 +135,7 @@ class SteeringLayout(Widget):
 
     # inline lane-change toggles (flattened from Customize Lane Change submenu)
     lc = self._lane_change_settings_layout
-    enable_bsm = ui_state.CP is not None and ui_state.CP.enableBsm
+    enable_bsm = ui_state.CP is not None and has_bsm(ui_state.CP, ui_state.CP_SP)
     if not enable_bsm and ui_state.params.get_bool("AutoLaneChangeBsmDelay"):
       ui_state.params.remove("AutoLaneChangeBsmDelay")
     lc._bsm_delay.action_item.set_enabled(enable_bsm and ui_state.params.get("AutoLaneChangeTimer", return_default=True) > AutoLaneChangeMode.NUDGE)

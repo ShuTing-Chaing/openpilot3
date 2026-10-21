@@ -11,6 +11,7 @@ from opendbc.car.structs import car
 from opendbc.car.hyundai.values import CAR as HYUNDAI_CAR, UNSUPPORTED_LONGITUDINAL_CAR
 from opendbc.car.subaru.values import CAR as SUBARU_CAR, SubaruFlags
 from opendbc.sunnypilot.car.tesla.values import TeslaFlagsSP
+from opendbc.sunnypilot.car.interfaces import has_bsm
 from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.hardware import HARDWARE
@@ -142,6 +143,7 @@ def generate_capabilities(params: Params | None = None) -> dict:
 
   # CarParams-derived capabilities
   CP = None
+  CP_SP = None
   CP_bytes = params.get("CarParamsPersistent")
   if CP_bytes is not None:
     try:
@@ -159,7 +161,6 @@ def generate_capabilities(params: Params | None = None) -> dict:
       if not caps["brand"] and CP.brand:
         caps["brand"] = str(CP.brand)
       caps["pcm_cruise"] = bool(CP.pcmCruise)
-      caps["enable_bsm"] = bool(CP.enableBsm)
       # Generic SnG fallback. Brand-specific opaque flags below override.
       caps["has_stop_and_go"] = bool(CP.openpilotLongitudinalControl)
     except Exception:
@@ -177,6 +178,7 @@ def generate_capabilities(params: Params | None = None) -> dict:
     except Exception:
       cloudlog.exception("capabilities: failed to deserialize CarParamsSPPersistent")
 
+  caps["enable_bsm"] = has_bsm(CP, CP_SP) if CP is not None else False
   _resolve_brand_capabilities(caps, bundle_platform, CP)
 
   return caps

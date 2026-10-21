@@ -70,7 +70,7 @@ class CarState(CarStateBase, CarStateExt):
     if self.CP.carFingerprint == CAR.HONDA_CIVIC_2022 and self.CP.flags & HondaFlags.BOSCH_RADARLESS:
       acc_hud_parser = self._select_hud_parser(cp, cp_cam, "ACC_HUD")
       lkas_hud_parser = self._select_hud_parser(cp, cp_cam, "LKAS_HUD")
-    if self.CP.enableBsm:
+    if self.CP.flags & HondaFlags.HAS_BSM:
       cp_body = can_parsers[Bus.body]
 
     ret = structs.CarState()
