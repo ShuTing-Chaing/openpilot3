@@ -9,20 +9,13 @@ from openpilot.system.ui.lib.application import gui_app
 from openpilot.selfdrive.ui.layouts.main import MainLayout
 from openpilot.selfdrive.ui.ui_state import ui_state
 
-BIG_UI = gui_app.big_ui()
-
-
 def main():
   cores = {5, }
   # above plannerd and radard
   config_realtime_process(0, Priority.CTRL_HIGH)
 
   gui_app.init_window("UI")
-  if BIG_UI:
-    MainLayout()
-  else:
-    from openpilot.selfdrive.ui.mici.layouts.main import MiciMainLayout
-    MiciMainLayout()
+  MainLayout()
 
   pm = messaging.PubMaster(['uiDebug'])
   for should_render, frame_time, cpu_time in gui_app.render():

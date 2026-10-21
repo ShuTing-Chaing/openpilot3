@@ -16,7 +16,7 @@ from openpilot.selfdrive.ui.tests.diff.diff import DIFF_OUT_DIR
 from openpilot.system.updated.updated import parse_release_notes
 from openpilot.common.version import terms_version, training_version, terms_version_sp, sunnylink_consent_version
 
-LayoutVariant = Literal["mici", "tizi"]
+LayoutVariant = Literal["tizi"]
 
 FPS = 60
 HEADLESS = os.getenv("WINDOWED", "0") != "1"
@@ -56,11 +56,7 @@ def run_replay(variant: LayoutVariant) -> None:
 
   gui_app.init_window("ui diff test", fps=FPS)
 
-  # Dynamically import main layout based on variant
-  if variant == "mici":
-    from openpilot.selfdrive.ui.mici.layouts.main import MiciMainLayout as MainLayout
-  else:
-    from openpilot.selfdrive.ui.layouts.main import MainLayout
+  from openpilot.selfdrive.ui.layouts.main import MainLayout
   main_layout = MainLayout()
 
   # Disable interactive timeout — replay clicks use left_down=False so they never reset the timer,
@@ -115,27 +111,23 @@ def run_replay(variant: LayoutVariant) -> None:
 
 
 def main():
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--big', action='store_true', help='Use big UI layout (tizi/tici) instead of mici layout')
-  args = parser.parse_args()
+  argparse.ArgumentParser().parse_args()
 
-  variant: LayoutVariant = 'tizi' if args.big else 'mici'
-
-  if args.big:
-    os.environ["BIG"] = "1"
+  variant: LayoutVariant = 'tizi'
+  os.environ["BIG"] = "1"
   os.environ["RECORD"] = "1"
   os.environ["RECORD_QUALITY"] = "0"  # Use CRF 0 ("lossless" encode) for deterministic output across different machines
   os.environ["RECORD_OUTPUT"] = os.path.join(DIFF_OUT_DIR, os.environ.get("RECORD_OUTPUT", f"{variant}_ui_replay.mp4"))
 
   print(f"Running {variant} UI replay...")
   with OpenpilotPrefix():
-    sources = ["openpilot.system.ui"]
-    if variant == "mici":
-      sources.append("openpilot.selfdrive.ui.mici")
-      omit = ["**/*tizi*", "**/*tici*"]  # exclude files containing "tizi" or "tici"
-    else:
-      sources.extend(["openpilot.selfdrive.ui.layouts", "openpilot.selfdrive.ui.onroad", "openpilot.selfdrive.ui.widgets"])
-      omit = ["**/*mici*"]  # exclude files containing "mici"
+    sources = [
+      "openpilot.system.ui",
+      "openpilot.selfdrive.ui.layouts",
+      "openpilot.selfdrive.ui.onroad",
+      "openpilot.selfdrive.ui.widgets",
+    ]
+    omit = ["**/*mici*"]
     cov = coverage.Coverage(source=sources, omit=omit)
     with cov.collect():
       run_replay(variant)

@@ -5,7 +5,7 @@ from openpilot.system.ui.lib.multilang import tr, tr_noop
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.lib.scroll_panel import GuiScrollPanel
 from openpilot.system.ui.lib.wrap_text import wrap_text
-from openpilot.selfdrive.ui.mici.layouts.settings.firehose import FirehoseLayoutBase
+from openpilot.selfdrive.ui.layouts.settings.firehose_base import FirehoseLayoutBase
 
 TITLE = tr_noop("Firehose Mode")
 DESCRIPTION = tr_noop(

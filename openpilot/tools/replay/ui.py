@@ -22,7 +22,7 @@ from openpilot.tools.replay.lib.ui_helpers import (
   plot_model,
 )
 from openpilot.cereal.visionipc import VisionStreamType
-from openpilot.selfdrive.ui.mici.onroad.cameraview import CameraView
+from openpilot.selfdrive.ui.onroad.cameraview import CameraView
 
 os.environ['BASEDIR'] = BASEDIR
 

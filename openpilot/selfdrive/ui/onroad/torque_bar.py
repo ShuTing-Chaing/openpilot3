@@ -6,7 +6,6 @@ from collections import OrderedDict
 import numpy as np
 import pyray as rl
 from opendbc.car import ACCELERATION_DUE_TO_GRAVITY
-from openpilot.selfdrive.ui.mici.onroad import blend_colors
 from openpilot.selfdrive.ui.ui_state import ui_state, UIStatus
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.system.ui.lib.shader_polygon import draw_polygon, Gradient
@@ -17,6 +16,13 @@ from openpilot.common.filter_simple import FirstOrderFilter
 TORQUE_ANGLE_SPAN = 12.7
 
 DEBUG = False
+
+
+def blend_colors(a: rl.Color, b: rl.Color, f: float) -> rl.Color:
+  h0, s0, v0 = (hsv0 := rl.color_to_hsv(a)).x, hsv0.y, hsv0.z
+  h1, s1, v1 = (hsv1 := rl.color_to_hsv(b)).x, hsv1.y, hsv1.z
+  dh = ((h1 - h0 + 180) % 360) - 180
+  return rl.color_from_hsv((h0 + f * dh) % 360, s0 + f * (s1 - s0), v0 + f * (v1 - v0))
 
 
 def quantized_lru_cache(maxsize=128):

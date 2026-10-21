@@ -8,7 +8,7 @@ import numpy as np
 from openpilot.cereal.visionipc import VisionStreamType
 from msgq.visionipc import VisionIpcServer
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.selfdrive.ui.mici.layouts.main import MiciMainLayout
+from openpilot.selfdrive.ui.layouts.main import MainLayout
 from openpilot.system.ui.lib.application import gui_app
 from openpilot.tools.lib.logreader import LogReader
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     os.environ['SDL_VIDEODRIVER'] = 'dummy'
 
   gui_app.init_window("UI Profiling", fps=600)
-  main_layout = MiciMainLayout()
+  main_layout = MainLayout()
 
   print("Running...")
   patch_submaster(message_chunks)

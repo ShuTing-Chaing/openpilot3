@@ -15,7 +15,6 @@ from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.scroll_panel2 import GuiScrollPanel2
 from openpilot.system.ui.lib.multilang import tr, trn, tr_noop
 from openpilot.system.ui.widgets import Widget
-from openpilot.system.ui.widgets.scroller import NavRawScrollPanel
 
 TITLE = tr_noop("Firehose Mode")
 DESCRIPTION = tr_noop(
@@ -218,7 +217,3 @@ class FirehoseLayoutBase(Widget):
       if not ui_state.started and device._awake:
         self._fetch_firehose_stats()
       time.sleep(self.UPDATE_INTERVAL)
-
-
-class FirehoseLayout(NavRawScrollPanel, FirehoseLayoutBase):
-  pass
