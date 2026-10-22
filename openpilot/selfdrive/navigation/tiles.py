@@ -38,12 +38,29 @@ class RemoteTiles:
       self.close()
       raise
 
+  def _request_with_retries(self, url: str, headers: dict, *, stream: bool = False):
+    last_response = None
+    for attempt in range(5):
+      try:
+        response = self.session.get(url, headers=headers, timeout=20, stream=stream)
+        if response.status_code not in (404, 408, 429) and response.status_code < 500:
+          return response
+        last_response = response
+        response.close()
+      except requests.RequestException:
+        if attempt == 4:
+          raise
+      if attempt < 4:
+        time.sleep(0.4 * (2 ** attempt) + 0.1 * attempt)
+    assert last_response is not None
+    return last_response
+
   def _fetch(self, offset: int, length: int) -> bytes:
     try:
       if time.time() >= self.expires - 60:  # noqa: TID251 - SAS expiry is a Unix timestamp
         device_id, auth_headers = nav_auth(self.params)
         device_path = urllib.parse.quote(device_id, safe='')
-        response = self.session.get(f'{NAV_API_HOST}/v1/{device_path}/nav/tiles', headers=auth_headers, timeout=10)
+        response = self._request_with_retries(f'{NAV_API_HOST}/v1/{device_path}/nav/tiles', auth_headers)
         response.raise_for_status()
         metadata = response.json()
         self.url, self.expires = metadata['url'], metadata['expires']
@@ -51,7 +68,7 @@ class RemoteTiles:
       headers = {**auth_headers, 'Range': f'bytes={offset}-{offset + length - 1}', 'Accept-Encoding': 'identity'}
       if self.etag is not None:
         headers['If-Match'] = self.etag
-      with self.session.get(self.url, headers=headers, timeout=10, stream=True) as response:
+      with self._request_with_retries(self.url, headers, stream=True) as response:
         if response.status_code != 206:
           raise OSError(f'Map tile range request failed ({response.status_code})')
         match = re.fullmatch(r'bytes (\d+)-(\d+)/(\d+)', response.headers.get('Content-Range', ''))

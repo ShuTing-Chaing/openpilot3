@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import time
 
 import numpy as np
 import requests
@@ -119,7 +120,18 @@ class RouteEngine:
         params['access_token'] = self.mapbox_token
       else:
         _, headers = nav_auth(self.params)
-      resp = requests.get(url, params=params, headers=headers, timeout=10)
+      resp = None
+      for attempt in range(5):
+        try:
+          resp = requests.get(url, params=params, headers=headers, timeout=15)
+          if resp.status_code == 200:
+            break
+        except requests.exceptions.RequestException:
+          if attempt == 4:
+            raise
+        if attempt < 4:
+          time.sleep(0.4 * (2 ** attempt))
+      assert resp is not None
       if resp.status_code != 200:
         cloudlog.event("API request failed", status_code=resp.status_code, text=resp.text, error=True)
       resp.raise_for_status()
