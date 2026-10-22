@@ -22,6 +22,8 @@ echo 1 > /sys/class/gpio/gpio124/value
 echo 1 > /sys/class/gpio/gpio134/value
 sleep 0.2
 echo 0 > /sys/class/gpio/gpio124/value
+sleep 0.1
+echo 0 > /sys/class/gpio/gpio134/value
 sleep 1
 
 # 2) 单 handle 分块刷写 bootstub (带重试 + 读回校验)
@@ -43,7 +45,8 @@ def w(pin, val):
 
 for attempt in range(30):
     # reset with BOOT0 held high (each retry)
-    w(124, 1); w(134, 1); time.sleep(0.2); w(124, 0); time.sleep(1)
+    w(124, 1); w(134, 1); time.sleep(0.2)
+    w(124, 0); time.sleep(0.1); w(134, 0); time.sleep(1)
     try:
         h = STBootloaderSPIHandle()
     except Exception:
