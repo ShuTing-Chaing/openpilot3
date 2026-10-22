@@ -91,13 +91,15 @@ def mapbox_response(steps):
   return response
 
 
-def route_engine(sm, pm, values):
+def route_engine(testcase, sm, pm, values):
   params = MagicMock()
   params.get.side_effect = values.get
   params.remove.side_effect = lambda key: values.pop(key, None)
-  with patch('openpilot.selfdrive.navigation.navd.nav_auth',
-             return_value=('test-dongle', {'X-Device-ID': 'test-dongle', 'X-Nav-Token': 'device-token'})):
-    return RouteEngine(sm, pm, params=params)
+  auth_patch = patch('openpilot.selfdrive.navigation.navd.nav_auth',
+                     return_value=('test-dongle', {'X-Device-ID': 'test-dongle', 'X-Nav-Token': 'device-token'}))
+  auth_patch.start()
+  testcase.addCleanup(auth_patch.stop)
+  return RouteEngine(sm, pm, params=params)
 
 
 class TestNavAuth(unittest.TestCase):
@@ -202,7 +204,7 @@ class TestEndToEnd(TileServerCase):
       pm = messaging.PubMaster(['navInstruction', 'navRoute', 'gpsLocationExternal'])
       sm = messaging.SubMaster(['gpsLocation', 'gpsLocationExternal', 'navRoute'])
       values = {'NavDestination': dict(destination)}
-      navd = route_engine(messaging.SubMaster(['gpsLocation', 'gpsLocationExternal']), pm, values)
+      navd = route_engine(self, messaging.SubMaster(['gpsLocation', 'gpsLocationExternal']), pm, values)
       mapsd = MapsD()
       self.addCleanup(mapsd.close)
 
@@ -304,7 +306,7 @@ class TestRouteEngine(unittest.TestCase):
     self.sm.logMonoTime = dict.fromkeys(self.sm.valid, time.monotonic_ns())
     self.sm.recv_time = dict.fromkeys(self.sm.valid, time.monotonic())
     self.sm.__getitem__.return_value = SimpleNamespace(hasFix=True, latitude=0, longitude=0, bearingDeg=90)
-    self.engine = route_engine(self.sm, self.pm, self.values)
+    self.engine = route_engine(self, self.sm, self.pm, self.values)
     self.engine.last_position, self.engine.last_bearing = (0, 0), 90
     distance = 111.195  # Mapbox's length of 0.001 degrees at the equator
     self.response = mapbox_response([
