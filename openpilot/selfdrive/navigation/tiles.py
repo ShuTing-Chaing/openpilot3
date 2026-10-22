@@ -40,18 +40,19 @@ class RemoteTiles:
 
   def _request_with_retries(self, url: str, headers: dict, *, stream: bool = False):
     last_response = None
-    for attempt in range(5):
+    for attempt in range(8):
       try:
-        response = self.session.get(url, headers=headers, timeout=20, stream=stream)
+        request_headers = {**headers, 'Connection': 'close'}
+        response = self.session.get(url, headers=request_headers, timeout=8, stream=stream)
         if response.status_code not in (404, 408, 429) and response.status_code < 500:
           return response
         last_response = response
         response.close()
       except requests.RequestException:
-        if attempt == 4:
+        if attempt == 7:
           raise
-      if attempt < 4:
-        time.sleep(0.4 * (2 ** attempt) + 0.1 * attempt)
+      if attempt < 7:
+        time.sleep(min(0.3 * (2 ** attempt), 2.0))
     assert last_response is not None
     return last_response
 
