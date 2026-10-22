@@ -39,15 +39,17 @@ class MapsD:
       if self.tracker is not None and now >= self.retry_at:
         if self.renderer is None:
           self.renderer = MapRenderer(PMTiles(RemoteTiles()))
-        if not self.prefetched:
-          # TODO: fetch the tiles more intelligently on demand
-          # Every tile the route can show is fetched up front, so each render below is a cache hit.
-          self.renderer.prefetch(self.route)
-          self.prefetched = True
         if source is not None:
           gps = sm[source]
           # As in training, the map is centered on the route and headed along it, not at the GPS fix.
-          image, valid = self.renderer.render(*self.tracker.snap(gps.longitude, gps.latitude), self.route)
+          pose = self.tracker.snap(gps.longitude, gps.latitude)
+          if not self.prefetched:
+            # Fetch only the current view first so long routes render immediately; later views load on demand.
+            self.renderer.archive.prefetch(
+              (self.renderer.zoom, x, y) for x, y in self.renderer.view_tiles(pose[0], pose[1])
+            )
+            self.prefetched = True
+          image, valid = self.renderer.render(*pose, self.route)
           if valid:
             return image, sm.logMonoTime[source]
     except Exception:  # a failed fetch, or a corrupt cached tile
