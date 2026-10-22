@@ -106,7 +106,7 @@ procs = [
   PythonProcess("timed", "openpilot.system.timed", always_run, enabled=not PC),
 
   PythonProcess("modeld", "openpilot.selfdrive.modeld.modeld", and_(only_onroad, is_stock_model)),
-  PythonProcess("phone_navi", "openpilot.selfdrive.phone_navi.agent", always_run, restart_if_crash=True),
+  PythonProcess("phone_navi", "openpilot.selfdrive.phone_navi.agent", always_run),
   #PythonProcess("dmonitoringmodeld", "openpilot.selfdrive.modeld.dmonitoringmodeld", driverview, enabled=(WEBCAM or not PC)),  # disabled
 
   PythonProcess("sensord", "openpilot.system.sensord.sensord", only_onroad, enabled=not PC),
