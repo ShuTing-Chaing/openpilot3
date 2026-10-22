@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import logging
 import os
+import queue
 import socket
 import struct
 import threading
@@ -14,12 +16,22 @@ import time
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+from PIL import Image, ImageOps
+from msgq.visionipc import VisionIpcServer
+
 import openpilot.cereal.messaging as messaging
+from openpilot.cereal.visionipc import VisionStreamType
 from openpilot.common.params import Params
+from openpilot.selfdrive.navigation.helpers import latest_gps_source
 
 LOGGER = logging.getLogger("phone_navi")
 DISCOVERY_PORT = 7705
 WEBSOCKET_PORT = 7714
+MAP_STREAM_NAME = "phone_navi"
+MAP_WIDTH = 384
+MAP_HEIGHT = 512
+MAP_JPEG_MAX_BYTES = 4 * 1024 * 1024
 SERVICE = "mrone-phone-navi"
 STATE_PATH = Path("/data/phone_navi_state.json")
 MAX_FRAME_BYTES = 16 * 1024 * 1024
@@ -78,6 +90,56 @@ def _send_json(conn: socket.socket, payload: dict[str, Any]) -> None:
   _send_frame(conn, 0x1, json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
 
 
+class MapStreamPublisher:
+  """Decode phone JPEG map frames and expose RGB frames on VisionIPC."""
+
+  def __init__(self):
+    self.server = VisionIpcServer(MAP_STREAM_NAME)
+    self.server.create_buffers_with_sizes(
+      VisionStreamType.VISION_STREAM_MAP,
+      4,
+      MAP_WIDTH,
+      MAP_HEIGHT,
+      MAP_WIDTH * MAP_HEIGHT * 3,
+      MAP_WIDTH * 3,
+      0,
+    )
+    self.server.start_listener()
+    self.frames: queue.Queue[bytes | None] = queue.Queue(maxsize=2)
+    self.frame_id = 0
+    threading.Thread(target=self._run, name="phone-map-stream", daemon=True).start()
+
+  def submit(self, jpeg: bytes) -> None:
+    if not jpeg or len(jpeg) > MAP_JPEG_MAX_BYTES:
+      return
+    try:
+      self.frames.put_nowait(jpeg)
+    except queue.Full:
+      try:
+        self.frames.get_nowait()
+      except queue.Empty:
+        pass
+      try:
+        self.frames.put_nowait(jpeg)
+      except queue.Full:
+        pass
+
+  def _run(self) -> None:
+    while True:
+      jpeg = self.frames.get()
+      if jpeg is None:
+        return
+      try:
+        with Image.open(io.BytesIO(jpeg)) as source:
+          image = ImageOps.fit(source.convert("RGB"), (MAP_WIDTH, MAP_HEIGHT), method=Image.Resampling.BILINEAR)
+        rgb = np.asarray(image, dtype=np.uint8).reshape(-1)
+        now = time.monotonic_ns()
+        self.server.send(VisionStreamType.VISION_STREAM_MAP, rgb.tobytes(), self.frame_id, now, now)
+        self.frame_id += 1
+      except Exception:
+        LOGGER.exception("phone map frame decode failed")
+
+
 def _handshake(conn: socket.socket, request: bytes) -> str | None:
   lines = request.decode("latin-1", "replace").split("\r\n")
   if not lines or not lines[0].startswith("GET "):
@@ -108,6 +170,8 @@ class CerealPublisher:
     self.lock = threading.Lock()
     self.last_route: list[dict[str, float]] | None = None
     self.last_instruction: dict[str, Any] | None = None
+    self.heartbeat_stop = threading.Event()
+    threading.Thread(target=self._heartbeat, name="phone-nav-heartbeat", daemon=True).start()
 
   def publish_route(self, coordinates: list[dict[str, Any]]) -> None:
     cleaned = []
@@ -153,11 +217,38 @@ class CerealPublisher:
       self.pm.send("navInstruction", message)
       self.last_instruction = payload
 
-  def resend_last(self, conn: socket.socket) -> None:
+  def replay(self) -> None:
     if self.last_route is not None:
-      _send_json(conn, {"type": "navRouteAck", "count": len(self.last_route)})
+      self.publish_route(self.last_route)
     if self.last_instruction is not None:
-      _send_json(conn, {"type": "navInstructionAck"})
+      self.publish_instruction(self.last_instruction)
+
+  def clear(self) -> None:
+    with self.lock:
+      route = messaging.new_message("navRoute", valid=True)
+      route.navRoute.coordinates = []
+      self.pm.send("navRoute", route)
+      instruction = messaging.new_message("navInstruction", valid=False)
+      self.pm.send("navInstruction", instruction)
+      self.last_route = None
+      self.last_instruction = None
+
+  def _heartbeat(self) -> None:
+    last_route_at = 0.0
+    while not self.heartbeat_stop.is_set():
+      try:
+        if self.last_instruction is not None:
+          self.publish_instruction(self.last_instruction)
+        now = time.monotonic()
+        if self.last_route is not None and now - last_route_at >= 5.0:
+          self.publish_route(self.last_route)
+          last_route_at = now
+      except Exception:
+        LOGGER.exception("phone navigation heartbeat failed")
+      self.heartbeat_stop.wait(1.0)
+
+  def resend_last(self) -> None:
+    self.replay()
 
 
 class PhoneNaviServer:
@@ -166,9 +257,51 @@ class PhoneNaviServer:
     self.device_id = str(self.params.get("DongleId") or "comma-device")
     self.hostname = socket.gethostname()
     self.publisher = CerealPublisher()
+    self.map_publisher = MapStreamPublisher()
     self.stop_event = threading.Event()
+    self.clients_lock = threading.Lock()
+    self.clients: dict[socket.socket, threading.Lock] = {}
+    self.last_location: dict[str, Any] | None = None
+    self.state = self.load_state()
     Path("/data/phone_navi_active").touch()
     self.params.put_bool("NavigationEnabled", True, block=True)
+    self.restore_state()
+    threading.Thread(target=self.telemetry_loop, name="phone-nav-telemetry", daemon=True).start()
+
+  def send_json(self, conn: socket.socket, payload: dict[str, Any]) -> None:
+    with self.clients_lock:
+      send_lock = self.clients.get(conn)
+    if send_lock is None:
+      return
+    with send_lock:
+      _send_json(conn, payload)
+
+  def telemetry_loop(self) -> None:
+    sm = messaging.SubMaster(["gpsLocation", "gpsLocationExternal"])
+    while not self.stop_event.is_set():
+      sm.update(200)
+      source = latest_gps_source(sm)
+      if source is None:
+        continue
+      gps = sm[source]
+      location = {
+        "type": "vehicleLocation",
+        "latitude": float(gps.latitude),
+        "longitude": float(gps.longitude),
+        "bearingDeg": float(gps.bearingDeg),
+        "speed": float(gps.speed),
+        "horizontalAccuracy": float(gps.horizontalAccuracy),
+        "satelliteCount": int(gps.satelliteCount),
+        "source": source,
+      }
+      self.last_location = location
+      with self.clients_lock:
+        clients = list(self.clients.items())
+      for conn, _ in clients:
+        try:
+          self.send_json(conn, location)
+        except OSError:
+          pass
 
   def discovery_loop(self) -> None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -207,14 +340,75 @@ class PhoneNaviServer:
       except OSError:
         pass
 
+  def load_state(self) -> dict[str, dict[str, Any] | None]:
+    state: dict[str, dict[str, Any] | None] = {"destination": None, "route": None, "instruction": None}
+    try:
+      saved = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+      for key in state:
+        if isinstance(saved.get(key), dict):
+          state[key] = saved[key]
+      legacy = saved.get("last_message")
+      if isinstance(legacy, dict):
+        legacy_type = legacy.get("type")
+        if legacy_type == "destination" and state["destination"] is None:
+          state["destination"] = legacy
+        elif legacy_type == "navRoute" and state["route"] is None:
+          state["route"] = legacy
+        elif legacy_type == "navInstruction" and state["instruction"] is None:
+          state["instruction"] = legacy
+    except (OSError, ValueError, TypeError):
+      pass
+    return state
+
   def save_state(self, payload: dict[str, Any]) -> None:
-    state = {"updated_at": time.time(), "last_message": payload}
+    message_type = payload.get("type")
+    if message_type == "destination":
+      self.state["destination"] = payload
+    elif message_type == "navRoute":
+      self.state["route"] = payload
+    elif message_type == "navInstruction":
+      self.state["instruction"] = payload
     try:
       tmp = STATE_PATH.with_suffix(".tmp")
-      tmp.write_text(json.dumps(state, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+      data = {"updated_at": time.time(), **self.state}
+      tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
       os.replace(tmp, STATE_PATH)
     except OSError:
       LOGGER.exception("failed to save phone navigation state")
+
+  def clear_navigation(self) -> None:
+    self.publisher.clear()
+    self.state = {"destination": None, "route": None, "instruction": None}
+    try:
+      tmp = STATE_PATH.with_suffix(".tmp")
+      data = {"updated_at": time.time(), **self.state}
+      tmp.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+      os.replace(tmp, STATE_PATH)
+    except OSError:
+      LOGGER.exception("failed to clear phone navigation state")
+    self.params.remove("NavDestination")
+    self.params.put_bool("NavigationEnabled", False, block=True)
+
+  def restore_state(self) -> None:
+    destination = self.state.get("destination")
+    if isinstance(destination, dict):
+      longitude = float(destination.get("longitude") or 0.0)
+      latitude = float(destination.get("latitude") or 0.0)
+      if longitude != 0.0 and latitude != 0.0:
+        self.params.put("NavDestination", {
+          "name": str(destination.get("name") or ""),
+          "longitude": longitude,
+          "latitude": latitude,
+        }, block=True)
+    route = self.state.get("route")
+    if isinstance(route, dict) and isinstance(route.get("coordinates"), list):
+      try:
+        self.publisher.publish_route(route["coordinates"])
+      except ValueError:
+        pass
+    instruction = self.state.get("instruction")
+    if isinstance(instruction, dict):
+      self.publisher.publish_instruction(instruction)
 
   def handle_client(self, conn: socket.socket, address: tuple[str, int]) -> None:
     try:
@@ -229,15 +423,27 @@ class PhoneNaviServer:
       if path is None or not path.startswith("/api/phone-navi/v1"):
         return
       conn.settimeout(None)
+      with self.clients_lock:
+        self.clients[conn] = threading.Lock()
       LOGGER.warning("phone_navi client connected: %s", address)
-      _send_json(conn, {"type": "welcome", "protocol": 1, "device_id": self.device_id})
-      self.publisher.resend_last(conn)
+      map_info = {"encoding": "jpeg", "width": MAP_WIDTH, "height": MAP_HEIGHT, "fps": 5}
+      self.send_json(conn, {"type": "welcome", "protocol": 1, "device_id": self.device_id, "map": map_info})
+      self.publisher.resend_last()
+      if self.publisher.last_route is not None:
+        self.send_json(conn, {"type": "navRouteAck", "count": len(self.publisher.last_route)})
+      if self.publisher.last_instruction is not None:
+        self.send_json(conn, {"type": "navInstructionAck"})
+      if self.last_location is not None:
+        self.send_json(conn, self.last_location)
       while not self.stop_event.is_set():
         opcode, data = _read_frame(conn)
         if opcode == 0x8:
           break
         if opcode == 0x9:
           _send_frame(conn, 0xA, data)
+          continue
+        if opcode == 0x2:
+          self.map_publisher.submit(data)
           continue
         if opcode != 0x1:
           continue
@@ -247,7 +453,7 @@ class PhoneNaviServer:
         message_type = str(payload.get("type") or "")
         self.save_state(payload)
         if message_type == "hello":
-          _send_json(conn, {"type": "helloAck", "protocol": 1})
+          self.send_json(conn, {"type": "helloAck", "protocol": 1, "map": map_info})
         elif message_type == "destination":
           destination = {
             "name": str(payload.get("name") or ""),
@@ -257,19 +463,24 @@ class PhoneNaviServer:
           if destination["longitude"] != 0.0 and destination["latitude"] != 0.0:
             self.params.put("NavDestination", destination, block=True)
           self.params.put_bool("NavigationEnabled", True, block=True)
-          _send_json(conn, {"type": "destinationAck"})
+          self.send_json(conn, {"type": "destinationAck"})
         elif message_type == "navRoute":
           coordinates = payload.get("coordinates") or []
           self.publisher.publish_route(coordinates)
-          _send_json(conn, {"type": "navRouteAck", "count": len(coordinates)})
+          self.send_json(conn, {"type": "navRouteAck", "count": len(coordinates)})
         elif message_type == "navInstruction":
           self.publisher.publish_instruction(payload)
-          _send_json(conn, {"type": "navInstructionAck"})
+          self.send_json(conn, {"type": "navInstructionAck"})
+        elif message_type == "navigationStop":
+          self.clear_navigation()
+          self.send_json(conn, {"type": "navigationStopAck"})
         else:
-          _send_json(conn, {"type": "error", "message": f"unsupported type: {message_type}"})
+          self.send_json(conn, {"type": "error", "message": f"unsupported type: {message_type}"})
     except Exception as exc:
       LOGGER.warning("phone_navi client disconnected: %s", exc)
     finally:
+      with self.clients_lock:
+        self.clients.pop(conn, None)
       try:
         conn.close()
       except OSError:

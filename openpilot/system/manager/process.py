@@ -103,6 +103,17 @@ class ManagerProcess(ABC):
 
     return ret
 
+  def prepare_start(self) -> bool:
+    if self.proc is None:
+      return True
+    if self.proc.is_alive():
+      return False
+    exit_code = self.proc.exitcode
+    self.proc.join()
+    self.proc = None
+    cloudlog.warning(f"{self.name} exited with {exit_code}, restarting")
+    return True
+
   def signal(self, sig: int) -> None:
     if self.proc is None:
       return
@@ -144,7 +155,7 @@ class NativeProcess(ManagerProcess):
     if self.shutting_down:
       self.stop()
 
-    if self.proc is not None:
+    if not self.prepare_start():
       return
 
     cwd = os.path.join(BASEDIR, self.cwd)
@@ -168,7 +179,7 @@ class PythonProcess(ManagerProcess):
     if self.shutting_down:
       self.stop()
 
-    if self.proc is not None:
+    if not self.prepare_start():
       return
 
     cloudlog.info(f"starting python {self.module}")

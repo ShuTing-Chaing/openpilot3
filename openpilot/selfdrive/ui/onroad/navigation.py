@@ -4,8 +4,6 @@ import pyray as rl
 from msgq.visionipc import VisionIpcClient
 from openpilot.cereal.visionipc import VisionStreamType
 from openpilot.common.constants import CV
-from openpilot.selfdrive.navigation.helpers import latest_gps_source
-from openpilot.selfdrive.navigation.renderer import EGO, ROUTE_INTENSITY, SIZE
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.application import FontWeight, TextAlignmentVertical
 from openpilot.system.ui.widgets import Widget
@@ -14,12 +12,9 @@ from openpilot.system.ui.widgets.label import UnifiedLabel, gui_label
 PANEL_WIDTH = 261
 CONNECTION_RETRY_INTERVAL = 1.0
 STALE_SECONDS = 3
-MARKER_MARGIN = 18  # pixels kept below the ego so its marker stays visible
-
-# Recolor the model's grayscale frame for people: dim the white roads and make the grey route pop. Only the route's
-# exact level (and its neighbors) is recolored, so antialiased road edges passing through that grey stay grey.
-MAP_COLORS = np.repeat(np.round(np.arange(256) * 0.45).astype(np.uint8)[:, None], 3, axis=1)
-MAP_COLORS[ROUTE_INTENSITY - 1:ROUTE_INTENSITY + 2] = (72, 235, 132)
+PHONE_MAP_STREAM_NAME = 'phone_navi'
+FALLBACK_MAP_WIDTH = 384
+FALLBACK_MAP_HEIGHT = 512
 
 
 def format_distance(meters: float) -> str:
@@ -30,14 +25,16 @@ def format_distance(meters: float) -> str:
 
 
 class NavigationPanel(Widget):
-  """Turn instructions around the map frames mapsd publishes for the model."""
+  """Turn instructions around RGB map frames supplied by the phone navigation app."""
 
   def __init__(self):
     super().__init__()
-    self._client = VisionIpcClient('mapsd', VisionStreamType.VISION_STREAM_MAP, True)
+    self._client = VisionIpcClient(PHONE_MAP_STREAM_NAME, VisionStreamType.VISION_STREAM_MAP, True)
     self._last_connect = 0.0
     self._frame_time = 0.0
     self._texture = None
+    self._map_width = FALLBACK_MAP_WIDTH
+    self._map_height = FALLBACK_MAP_HEIGHT
     self._eta_label = UnifiedLabel('', 34, FontWeight.BOLD, rl.WHITE, scroll=True)
     self._accent = rl.Color(155, 230, 185, 255)
     self._muted = rl.Color(162, 175, 185, 255)
@@ -50,13 +47,18 @@ class NavigationPanel(Widget):
       if not self._client.connect(False) or not self._client.num_buffers:
         return
       self._unload_texture()
-      self._texture = rl.load_texture_from_image(rl.Image(None, SIZE, SIZE, 1, rl.PixelFormat.PIXELFORMAT_UNCOMPRESSED_R8G8B8))
+      self._map_width = int(self._client.width or FALLBACK_MAP_WIDTH)
+      self._map_height = int(self._client.height or FALLBACK_MAP_HEIGHT)
+      self._texture = rl.load_texture_from_image(
+        rl.Image(None, self._map_width, self._map_height, 1, rl.PixelFormat.PIXELFORMAT_UNCOMPRESSED_R8G8B8)
+      )
     frame = self._client.recv(timeout_ms=0)
-    if frame is not None:
-      gray = np.frombuffer(frame.data, dtype=np.uint8, count=SIZE * SIZE)
-      rl.update_texture(self._texture, rl.ffi.cast("void *", rl.ffi.from_buffer(MAP_COLORS[gray])))
-      # Without a usable map, mapsd publishes black frames with a zero timestamp.
-      self._frame_time = rl.get_time() if self._client.timestamp_sof else 0.0
+    if frame is not None and self._texture is not None:
+      count = self._map_width * self._map_height * 3
+      if len(frame.data) >= count:
+        rgb = np.frombuffer(frame.data, dtype=np.uint8, count=count).reshape((self._map_height, self._map_width, 3))
+        rl.update_texture(self._texture, rl.ffi.cast("void *", rl.ffi.from_buffer(rgb)))
+        self._frame_time = rl.get_time() if self._client.timestamp_sof else 0.0
 
   @property
   def routing(self):
@@ -67,9 +69,9 @@ class NavigationPanel(Widget):
     return self._texture is not None and 0 <= rl.get_time() - self._frame_time < STALE_SECONDS
 
   def _draw_status(self, rect):
-    """What the map is waiting on, in place of the map."""
+    """What the phone map is waiting on, in place of the map."""
     statuses = (
-      ('GPS fix', latest_gps_source(ui_state.sm) is not None),
+      ('Phone stream', self._client.is_connected()),
       ('Route', self.routing),
       ('Map frames', self.map_ready),
     )
@@ -102,10 +104,11 @@ class NavigationPanel(Widget):
     map_rect = rl.Rectangle(x+8, y+61, rect.width-16, rect.height-111)
     rl.draw_rectangle_rec(map_rect, rl.BLACK)
     if self.map_ready:
-      # A 1:1 crop of the model's frame, centered horizontally with the ego near the bottom.
-      width, height = min(map_rect.width, SIZE), min(map_rect.height, SIZE)
-      source = rl.Rectangle((SIZE - width) // 2, min(SIZE - height, max(0, EGO[1] + MARKER_MARGIN - height)), width, height)
-      target = rl.Rectangle(map_rect.x + (map_rect.width - width) / 2, map_rect.y + map_rect.height - height, width, height)
+      scale = min(map_rect.width / self._map_width, map_rect.height / self._map_height)
+      width = self._map_width * scale
+      height = self._map_height * scale
+      source = rl.Rectangle(0, 0, self._map_width, self._map_height)
+      target = rl.Rectangle(map_rect.x + (map_rect.width - width) / 2, map_rect.y + (map_rect.height - height) / 2, width, height)
       rl.draw_texture_pro(self._texture, source, target, rl.Vector2(0, 0), 0, rl.WHITE)
     else:
       self._draw_status(map_rect)
