@@ -43,12 +43,9 @@ class MapsD:
           gps = sm[source]
           # As in training, the map is centered on the route and headed along it, not at the GPS fix.
           pose = self.tracker.snap(gps.longitude, gps.latitude)
-          if not self.prefetched:
-            # Fetch only the current view first so long routes render immediately; later views load on demand.
-            self.renderer.archive.prefetch(
-              (self.renderer.zoom, x, y) for x, y in self.renderer.view_tiles(pose[0], pose[1])
-            )
-            self.prefetched = True
+          # Render-time reads fetch only the tiles actually needed. Avoid batching ranges: long merged
+          # requests are unreliable on constrained links, while individual tiles are cached on disk.
+          self.prefetched = True
           image, valid = self.renderer.render(*pose, self.route)
           if valid:
             return image, sm.logMonoTime[source]
