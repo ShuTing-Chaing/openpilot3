@@ -9,7 +9,7 @@ import requests
 from openpilot.common.hardware import PC
 from openpilot.common.hardware.hw import Paths
 from openpilot.common.params import Params
-from openpilot.selfdrive.navigation.auth import NAV_API_HOST, nav_auth
+from openpilot.selfdrive.navigation.auth import nav_api_host, nav_auth
 from openpilot.selfdrive.navigation.pmtiles import HEADER_LENGTH
 
 CACHE_LIMIT = 64 * 1024 * 1024
@@ -61,7 +61,7 @@ class RemoteTiles:
       if time.time() >= self.expires - 60:  # noqa: TID251 - SAS expiry is a Unix timestamp
         device_id, auth_headers = nav_auth(self.params)
         device_path = urllib.parse.quote(device_id, safe='')
-        response = self._request_with_retries(f'{NAV_API_HOST}/v1/{device_path}/nav/tiles', auth_headers)
+        response = self._request_with_retries(f'{nav_api_host(self.params)}/v1/{device_path}/nav/tiles', auth_headers)
         response.raise_for_status()
         metadata = response.json()
         self.url, self.expires = metadata['url'], metadata['expires']

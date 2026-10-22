@@ -16,6 +16,12 @@ def _as_text(value) -> str:
   return str(value or "").strip()
 
 
+def nav_api_host(params: Params | None = None) -> str:
+  params = params if params is not None else Params()
+  override = _as_text(params.get("NavApiHost"))
+  return (override or NAV_API_HOST).rstrip("/")
+
+
 def nav_auth(params: Params | None = None) -> tuple[str, dict[str, str]]:
   params = params if params is not None else Params()
   device_id = _as_text(NAV_DEVICE_ID or params.get("DongleId"))

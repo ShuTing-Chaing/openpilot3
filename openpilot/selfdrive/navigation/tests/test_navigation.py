@@ -103,6 +103,14 @@ def route_engine(testcase, sm, pm, values):
 
 
 class TestNavAuth(unittest.TestCase):
+  def test_api_host_default_and_override(self):
+    params = MagicMock()
+    params.get.return_value = None
+    with patch.object(nav_auth_module, 'NAV_API_HOST', 'https://nav.example/'):
+      self.assertEqual(nav_auth_module.nav_api_host(params), 'https://nav.example')
+    params.get.return_value = b'http://192.168.3.203:5051/'
+    self.assertEqual(nav_auth_module.nav_api_host(params), 'http://192.168.3.203:5051')
+
   def test_reads_device_token(self):
     with tempfile.TemporaryDirectory() as directory:
       token_path = Path(directory) / 'nav_token'
@@ -187,7 +195,7 @@ class TileServerCase(unittest.TestCase):
       ('nav_auth', self.nav_auth),
       ('Params', MagicMock()),
       ('PC', True),
-      ('NAV_API_HOST', f'http://127.0.0.1:{self.server.server_port}'),
+      ('nav_api_host', lambda _params: f'http://127.0.0.1:{self.server.server_port}'),
     ]
     for name, value in patch_values:
       self.enterContext(patch(f'openpilot.selfdrive.navigation.tiles.{name}', value))

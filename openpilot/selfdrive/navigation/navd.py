@@ -9,7 +9,7 @@ import openpilot.cereal.messaging as messaging
 from openpilot.common.params import Params
 from openpilot.common.realtime import Ratekeeper
 from openpilot.common.swaglog import cloudlog
-from openpilot.selfdrive.navigation.auth import NAV_API_HOST, nav_auth
+from openpilot.selfdrive.navigation.auth import nav_api_host, nav_auth
 from openpilot.selfdrive.navigation.helpers import latest_gps_source
 from openpilot.selfdrive.navigation.route import along_path, local_meters
 
@@ -52,7 +52,7 @@ class RouteEngine:
     self.reroute_counter = 0
 
     self.mapbox_token = os.environ.get("MAPBOX_TOKEN")
-    self.mapbox_host = "https://api.mapbox.com" if self.mapbox_token is not None else NAV_API_HOST + '/v1/nav'
+    self.mapbox_host = "https://api.mapbox.com" if self.mapbox_token is not None else nav_api_host(self.params) + '/v1/nav'
 
   def update(self):
     self.sm.update(0)
