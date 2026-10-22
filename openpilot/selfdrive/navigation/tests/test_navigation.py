@@ -99,6 +99,9 @@ def route_engine(testcase, sm, pm, values):
                      return_value=('test-dongle', {'X-Device-ID': 'test-dongle', 'X-Nav-Token': 'device-token'}))
   auth_patch.start()
   testcase.addCleanup(auth_patch.stop)
+  host_patch = patch('openpilot.selfdrive.navigation.navd.nav_api_host', return_value='https://nav.mr-one.cn')
+  host_patch.start()
+  testcase.addCleanup(host_patch.stop)
   return RouteEngine(sm, pm, params=params)
 
 
