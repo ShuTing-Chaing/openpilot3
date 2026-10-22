@@ -106,10 +106,18 @@ class TestNavAuth(unittest.TestCase):
   def test_api_host_default_and_override(self):
     params = MagicMock()
     params.get.return_value = None
-    with patch.object(nav_auth_module, 'NAV_API_HOST', 'https://nav.example/'):
-      self.assertEqual(nav_auth_module.nav_api_host(params), 'https://nav.example')
-    params.get.return_value = b'http://192.168.3.203:5051/'
-    self.assertEqual(nav_auth_module.nav_api_host(params), 'http://192.168.3.203:5051')
+    with tempfile.TemporaryDirectory() as directory:
+      with patch.object(nav_auth_module, 'NAV_API_HOST', 'https://nav.example/'):
+        with patch.object(nav_auth_module, 'NAV_API_HOST_FILE', Path(directory) / 'missing'):
+          self.assertEqual(nav_auth_module.nav_api_host(params), 'https://nav.example')
+      host_file = Path(directory) / 'nav_api_host'
+      host_file.write_text('http://192.168.3.203:5051/\n', encoding='utf-8')
+      params.get.side_effect = nav_auth_module.UnknownKeyName('NavApiHost')
+      with patch.object(nav_auth_module, 'NAV_API_HOST_FILE', host_file):
+        self.assertEqual(nav_auth_module.nav_api_host(params), 'http://192.168.3.203:5051')
+    params.get.side_effect = None
+    params.get.return_value = b'http://192.168.3.204:5051/'
+    self.assertEqual(nav_auth_module.nav_api_host(params), 'http://192.168.3.204:5051')
 
   def test_reads_device_token(self):
     with tempfile.TemporaryDirectory() as directory:
