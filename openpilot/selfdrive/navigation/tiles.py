@@ -1,14 +1,15 @@
 """Byte ranges of the hosted PMTiles basemap, cached on disk."""
 import re
 import time
+import urllib.parse
 from pathlib import Path
 
 import requests
 
-from openpilot.common.api import Api
 from openpilot.common.hardware import PC
 from openpilot.common.hardware.hw import Paths
 from openpilot.common.params import Params
+from openpilot.selfdrive.navigation.auth import NAV_API_HOST, nav_auth
 from openpilot.selfdrive.navigation.pmtiles import HEADER_LENGTH
 
 CACHE_LIMIT = 64 * 1024 * 1024
@@ -20,7 +21,7 @@ class RemoteTiles:
     self.cache = Path(Paths.comma_home() if PC else '/data') / 'navigation' / 'tiles'
     self.cache.mkdir(parents=True, exist_ok=True, mode=0o700)
     self.session = requests.Session()
-    self.api = Api(Params().get('DongleId'))
+    self.params = Params()
     self.url = ''
     self.expires = 0
     self.etag = None
@@ -40,11 +41,14 @@ class RemoteTiles:
   def _fetch(self, offset: int, length: int) -> bytes:
     try:
       if time.time() >= self.expires - 60:  # noqa: TID251 - SAS expiry is a Unix timestamp
-        response = self.api.get(f'v1/{self.api.dongle_id}/nav/tiles', access_token=self.api.get_token(), timeout=10)
+        device_id, auth_headers = nav_auth(self.params)
+        device_path = urllib.parse.quote(device_id, safe='')
+        response = self.session.get(f'{NAV_API_HOST}/v1/{device_path}/nav/tiles', headers=auth_headers, timeout=10)
         response.raise_for_status()
         metadata = response.json()
         self.url, self.expires = metadata['url'], metadata['expires']
-      headers = {'Range': f'bytes={offset}-{offset + length - 1}', 'Accept-Encoding': 'identity'}
+      _, auth_headers = nav_auth(self.params)
+      headers = {**auth_headers, 'Range': f'bytes={offset}-{offset + length - 1}', 'Accept-Encoding': 'identity'}
       if self.etag is not None:
         headers['If-Match'] = self.etag
       with self.session.get(self.url, headers=headers, timeout=10, stream=True) as response:
@@ -67,7 +71,7 @@ class RemoteTiles:
         self.size, self.etag = size, etag
         return bytes(data)
     except (requests.RequestException, ValueError, KeyError, TypeError, RuntimeError):
-      # requests exceptions contain the signed URL; keep it out of logs.
+      # Requests exceptions may contain the URL or authorization headers; keep them out of logs.
       raise OSError('Unable to fetch map tiles') from None
 
   def _store(self, offset: int, data: bytes):

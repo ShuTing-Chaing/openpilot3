@@ -1,4 +1,5 @@
 import gzip
+import json
 import re
 import struct
 import tempfile
@@ -16,6 +17,7 @@ import requests
 
 import openpilot.cereal.messaging as messaging
 from openpilot.common.prefix import OpenpilotPrefix
+from openpilot.selfdrive.navigation import auth as nav_auth_module
 from openpilot.selfdrive.navigation.mapsd import MapsD
 from openpilot.selfdrive.navigation.navd import REROUTE_COUNTER_MIN, ROUTE_RESEND_PERIOD, RouteEngine, set_banner
 from openpilot.selfdrive.navigation.pmtiles import PMTiles, decode_directory, tile_id
@@ -93,13 +95,49 @@ def route_engine(sm, pm, values):
   params = MagicMock()
   params.get.side_effect = values.get
   params.remove.side_effect = lambda key: values.pop(key, None)
-  with patch('openpilot.selfdrive.navigation.navd.Api') as api:
-    api.return_value.get_token.return_value = 'test-token'
+  with patch('openpilot.selfdrive.navigation.navd.nav_auth',
+             return_value=('test-dongle', {'X-Device-ID': 'test-dongle', 'X-Nav-Token': 'device-token'})):
     return RouteEngine(sm, pm, params=params)
+
+
+class TestNavAuth(unittest.TestCase):
+  def test_reads_device_token(self):
+    with tempfile.TemporaryDirectory() as directory:
+      token_path = Path(directory) / 'nav_token'
+      token_path.write_text('nav_test_token', encoding='utf-8')
+      params = MagicMock()
+      params.get.return_value = 'test-dongle'
+      with patch.object(nav_auth_module, 'NAV_TOKEN_PATH', token_path):
+        with patch.object(nav_auth_module, 'NAV_DEVICE_ID', ''):
+          device_id, headers = nav_auth_module.nav_auth(params)
+    self.assertEqual(device_id, 'test-dongle')
+    self.assertEqual(headers, {'X-Device-ID': 'test-dongle', 'X-Nav-Token': 'nav_test_token'})
+
+  def test_missing_token_fails_closed(self):
+    params = MagicMock()
+    params.get.return_value = 'test-dongle'
+    with tempfile.TemporaryDirectory() as directory:
+      missing = Path(directory) / 'missing'
+      with patch.object(nav_auth_module, 'NAV_TOKEN_PATH', missing):
+        with patch.object(nav_auth_module, 'NAV_DEVICE_ID', ''):
+          with self.assertRaisesRegex(RuntimeError, 'navigation credentials'):
+            nav_auth_module.nav_auth(params)
 
 
 class RangeHandler(BaseHTTPRequestHandler):
   def do_GET(self):
+    if self.path.startswith('/v1/'):
+      self.server.metadata_requests.append(dict(self.headers))
+      if self.server.metadata_status != 200:
+        self.send_error(self.server.metadata_status)
+        return
+      data = json.dumps({'url': self.server.url, 'expires': time.time() + 86400}).encode()  # noqa: TID251
+      self.send_response(200)
+      self.send_header('Content-Type', 'application/json')
+      self.send_header('Content-Length', str(len(data)))
+      self.end_headers()
+      self.wfile.write(data)
+      return
     self.server.requests.append(dict(self.headers))
     if self.headers.get('If-Match', self.server.etag) != self.server.etag:
       self.send_error(412)
@@ -133,14 +171,23 @@ class TileServerCase(unittest.TestCase):
     self.server.etag = '"test-version"'
     self.server.ignore_range = False
     self.server.requests = []
+    self.server.metadata_requests = []
+    self.server.metadata_status = 200
     threading.Thread(target=self.server.serve_forever, kwargs={'poll_interval': 0.01}, daemon=True).start()
     self.addCleanup(self.server.server_close)
     self.addCleanup(self.server.shutdown)
-    self.api = MagicMock(dongle_id='test-dongle')
-    self.api.get_token.return_value = 'device-token'
+    self.nav_auth = MagicMock(return_value=(
+      'test-dongle', {'X-Device-ID': 'test-dongle', 'X-Nav-Token': 'device-token'},
+    ))
     self.url = f'http://127.0.0.1:{self.server.server_port}/planet.pmtiles?sig=secret'
-    self.api.get.return_value.json.return_value = {'url': self.url, 'expires': time.time() + 86400}  # noqa: TID251
-    for name, value in [('Api', MagicMock(return_value=self.api)), ('Params', MagicMock()), ('PC', True)]:
+    self.server.url = self.url
+    patch_values = [
+      ('nav_auth', self.nav_auth),
+      ('Params', MagicMock()),
+      ('PC', True),
+      ('NAV_API_HOST', f'http://127.0.0.1:{self.server.server_port}'),
+    ]
+    for name, value in patch_values:
       self.enterContext(patch(f'openpilot.selfdrive.navigation.tiles.{name}', value))
     self.enterContext(patch('openpilot.selfdrive.navigation.tiles.Paths.comma_home', return_value=self.directory.name))
 
@@ -183,8 +230,10 @@ class TestEndToEnd(TileServerCase):
       self.assertEqual(len(self.server.requests), fetched)  # the second route is served from the cache
       image, timestamp = frame(fix=False)
       self.assertFalse(image.any() or timestamp)  # black, not stale, without a fix
-      self.api.get.assert_called_once()
+      self.assertEqual(len(self.server.metadata_requests), 1)
       self.assertTrue(all('Range' in headers for headers in self.server.requests))
+      self.assertTrue(all(headers.get('X-Nav-Token') == 'device-token' for headers in self.server.requests))
+      self.assertTrue(all(headers.get('X-Nav-Token') == 'device-token' for headers in self.server.metadata_requests))
       self.assertTrue(all(headers['If-Match'] == self.server.etag for headers in self.server.requests[1:]))
       self.assertTrue(all(b'secret' not in p.read_bytes() for p in self.cache.iterdir()))
       # The archive is replaced on the server and the cache evicted: the next fetch fails, the map goes black,
@@ -208,10 +257,10 @@ class TestEndToEnd(TileServerCase):
 class TestRemoteTiles(TileServerCase):
   def test_shared_cache_and_refresh(self):
     with closing(PMTiles(RemoteTiles())) as archive:
-      archive.source.expires = 0  # the signed URL is refreshed before the next fetch
+      archive.source.expires = 0  # tile metadata grants are refreshed before the next fetch
       self.assertEqual(archive.get(0, 0, 0), road_tile())
       self.assertEqual(archive.get(0, 0, 0), road_tile())
-      self.assertEqual(self.api.get.call_count, 2)
+      self.assertEqual(len(self.server.metadata_requests), 2)
     count = len(self.server.requests)
     with closing(PMTiles(RemoteTiles())) as archive:
       self.assertEqual(archive.get(0, 0, 0), road_tile())
@@ -241,8 +290,8 @@ class TestRemoteTiles(TileServerCase):
     self.server.ignore_range = True
     with self.assertRaisesRegex(OSError, '200'):
       RemoteTiles()
-    self.api.get.return_value.raise_for_status.side_effect = requests.HTTPError(self.url)
-    with self.assertRaisesRegex(OSError, '^Unable to fetch map tiles$'):  # the signed URL stays out of the error
+    self.server.metadata_status = 401
+    with self.assertRaisesRegex(OSError, '^Unable to fetch map tiles$'):  # credentials stay out of the error
       RemoteTiles()
 
 
@@ -275,9 +324,11 @@ class TestRouteEngine(unittest.TestCase):
 
   def test_request_and_instruction(self):
     get = self.load_route()
-    self.assertEqual(get.call_args.args[0], 'https://api.commadotai.com/v1/nav/directions/v5/mapbox/driving-traffic/0,0;0.002,0')
+    self.assertEqual(get.call_args.args[0], 'https://nav.mr-one.cn/v1/nav/directions/v5/mapbox/driving-traffic/0,0;0.002,0')
     options = get.call_args.kwargs['params']
-    self.assertEqual((options['access_token'], options['bearings'], options['language']), ('test-token', '90,90;', 'en'))
+    self.assertNotIn('access_token', options)
+    self.assertEqual((options['bearings'], options['language']), ('90,90;', 'en'))
+    self.assertEqual(get.call_args.kwargs['headers']['X-Nav-Token'], 'device-token')
     self.assertEqual(len(self.last_message('navRoute').navRoute.coordinates), 5)
     self.engine.send_instruction()
     message = self.last_message('navInstruction')

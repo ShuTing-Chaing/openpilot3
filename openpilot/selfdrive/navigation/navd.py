@@ -5,10 +5,10 @@ import numpy as np
 import requests
 
 import openpilot.cereal.messaging as messaging
-from openpilot.common.api import API_HOST, Api
 from openpilot.common.params import Params
 from openpilot.common.realtime import Ratekeeper
 from openpilot.common.swaglog import cloudlog
+from openpilot.selfdrive.navigation.auth import NAV_API_HOST, nav_auth
 from openpilot.selfdrive.navigation.helpers import latest_gps_source
 from openpilot.selfdrive.navigation.route import along_path, local_meters
 
@@ -51,8 +51,7 @@ class RouteEngine:
     self.reroute_counter = 0
 
     self.mapbox_token = os.environ.get("MAPBOX_TOKEN")
-    self.api = Api(self.params.get("DongleId")) if self.mapbox_token is None else None
-    self.mapbox_host = "https://api.mapbox.com" if self.mapbox_token is not None else API_HOST.rstrip('/') + '/v1/nav'
+    self.mapbox_host = "https://api.mapbox.com" if self.mapbox_token is not None else NAV_API_HOST + '/v1/nav'
 
   def update(self):
     self.sm.update(0)
@@ -101,12 +100,7 @@ class RouteEngine:
     if lang is not None:
       lang = lang.replace('main_', '')
 
-    token = self.mapbox_token
-    if token is None:
-      token = self.api.get_token()
-
     params = {
-      'access_token': token,
       'geometries': 'geojson',
       'overview': 'full',
       'steps': 'true',
@@ -120,7 +114,12 @@ class RouteEngine:
     coords_str = ';'.join(f'{lon},{lat}' for lon, lat in (self.last_position, destination))
     url = self.mapbox_host + '/directions/v5/mapbox/driving-traffic/' + coords_str
     try:
-      resp = requests.get(url, params=params, timeout=10)
+      headers = None
+      if self.mapbox_token is not None:
+        params['access_token'] = self.mapbox_token
+      else:
+        _, headers = nav_auth(self.params)
+      resp = requests.get(url, params=params, headers=headers, timeout=10)
       if resp.status_code != 200:
         cloudlog.event("API request failed", status_code=resp.status_code, text=resp.text, error=True)
       resp.raise_for_status()
@@ -134,7 +133,7 @@ class RouteEngine:
         cloudlog.warning("Got empty route response")
         self.clear_route()
 
-    except requests.exceptions.RequestException:
+    except (requests.exceptions.RequestException, RuntimeError):
       cloudlog.exception("failed to get route")
       self.clear_route()
 
