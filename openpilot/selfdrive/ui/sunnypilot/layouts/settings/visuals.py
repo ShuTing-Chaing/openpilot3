@@ -17,6 +17,8 @@ CHEVRON_INFO_DESCRIPTION = {
   "disabled": tr_noop("This feature requires sunnypilot longitudinal control to be available.")
 }
 
+CAMERA_VIEW_DESCRIPTION = tr_noop("Automatic switches between wide and standard views based on vehicle speed. Wide always uses the wide road camera; Standard always uses the narrow road camera.")  # noqa: E501
+
 
 class VisualsLayout(Widget):
   def __init__(self):
@@ -110,6 +112,13 @@ class VisualsLayout(Widget):
       )
       self._toggles[param] = toggle
 
+    self._camera_view = multiple_button_item_sp(
+      title=lambda: tr("Road Camera View"),
+      description=lambda: tr(CAMERA_VIEW_DESCRIPTION),
+      buttons=[lambda: tr("Auto"), lambda: tr("Wide"), lambda: tr("Standard")],
+      callback=self._on_camera_view_changed,
+      inline=False,
+    )
     self._chevron_info = multiple_button_item_sp(
       title=lambda: tr("Display Metrics Below Chevron"),
       description="",
@@ -126,7 +135,7 @@ class VisualsLayout(Widget):
       inline=False
     )
 
-    items = list(self._toggles.values()) + [
+    items = [self._camera_view] + list(self._toggles.values()) + [
       self._chevron_info,
       self._dev_ui_info,
     ]
@@ -139,6 +148,11 @@ class VisualsLayout(Widget):
       self._toggles[param].action_item.set_state(self._params.get_bool(param))
 
     self._dev_ui_info.action_item.set_selected_button(ui_state.params.get("DevUIInfo", return_default=True))
+    try:
+      camera_view_mode = ui_state.params.get("RoadCameraViewMode", return_default=True)
+    except Exception:
+      camera_view_mode = 0
+    self._camera_view.action_item.set_selected_button(camera_view_mode)
 
     if ui_state.has_longitudinal_control:
       self._chevron_info.set_description(tr(CHEVRON_INFO_DESCRIPTION["enabled"]))
@@ -148,6 +162,14 @@ class VisualsLayout(Widget):
       self._chevron_info.set_description(tr(CHEVRON_INFO_DESCRIPTION["disabled"]))
       self._chevron_info.action_item.set_enabled(False)
       ui_state.params.put("ChevronInfo", 0)
+
+  def _on_camera_view_changed(self, index: int):
+    if index not in (0, 1, 2):
+      return
+    try:
+      ui_state.params.put("RoadCameraViewMode", index, block=True)
+    except Exception:
+      pass
 
   def _render(self, rect):
     self._scroller.render(rect)

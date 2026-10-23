@@ -434,6 +434,7 @@ msgid "Aggressive"
 msgstr ""
 
 #: openpilot/selfdrive/ui/layouts/settings/toggles.py
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
 msgid "Standard"
 msgstr ""
 
@@ -1065,6 +1066,10 @@ msgid "Neural Network Lateral Control (NNLC)"
 msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Automatic switches between wide and standard views based on vehicle speed. Wide always uses the wide road camera; Standard always uses the narrow road camera."
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
 msgid "This feature requires sunnypilot longitudinal control to be available."
 msgstr ""
 
@@ -1141,6 +1146,10 @@ msgid "Real-time Acceleration Bar"
 msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Road Camera View"
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
 msgid "Display Metrics Below Chevron"
 msgstr ""
 
@@ -1150,6 +1159,14 @@ msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
 msgid "Display real-time parameters and metrics from various sources."
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Auto"
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Wide"
 msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/cruise_sub_layouts/speed_limit_settings.py

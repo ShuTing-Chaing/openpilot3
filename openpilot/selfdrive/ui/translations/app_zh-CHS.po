@@ -192,6 +192,10 @@ msgstr "辅助"
 msgid "Assist: Adjusts the vehicle's cruise speed based on the current road's speed limit when operating the +/- buttons."
 msgstr "辅助：操作 +/- 按钮时，根据当前道路限速调整车辆巡航速度。"
 
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Auto"
+msgstr "自动"
+
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/display.py
 msgid "Auto (Dark)"
 msgstr "自动（暗）"
@@ -207,6 +211,10 @@ msgstr "转向灯自动变道"
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/steering_sub_layouts/lane_change_settings.py
 msgid "Auto Lane Change: Delay with Blind Spot"
 msgstr "自动变道：盲区延迟"
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Automatic switches between wide and standard views based on vehicle speed. Wide always uses the wide road camera; Standard always uses the narrow road camera."
+msgstr "自动模式会根据车速在广角和标准视野之间切换。广角模式固定使用广角相机；标准模式固定使用窄角相机。"
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
 msgid "Avoid EPS Lockout"
@@ -1613,6 +1621,10 @@ msgstr "右侧"
 msgid "Right & Bottom"
 msgstr "右侧和底部"
 
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Road Camera View"
+msgstr "道路相机视野"
+
 #: openpilot/selfdrive/ui/layouts/settings/software.py
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/models.py
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/osm.py
@@ -1798,6 +1810,7 @@ msgid "Speedometer: Hide from Onroad Screen"
 msgstr "速度表：从行车屏幕隐藏"
 
 #: openpilot/selfdrive/ui/layouts/settings/toggles.py
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
 msgid "Standard"
 msgstr "标准"
 
@@ -2204,6 +2217,10 @@ msgstr "Wi‑Fi"
 #: openpilot/system/ui/widgets/network.py
 msgid "Wi-Fi Network Metered"
 msgstr "Wi‑Fi 计量网络"
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/visuals.py
+msgid "Wide"
+msgstr "广角"
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
 msgid "Would you like to delete this log?"
