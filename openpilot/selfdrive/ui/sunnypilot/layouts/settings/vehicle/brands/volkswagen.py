@@ -4,6 +4,7 @@ Copyright (c) 2021-, Haibin Wen, sunnypilot, and a number of other contributors.
 This file is part of sunnypilot and is licensed under the MIT License.
 See the LICENSE.md file in the root directory for more details.
 """
+from openpilot.common.swaglog import cloudlog
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.vehicle.brands.base import BrandSettings
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.multilang import tr, tr_noop
@@ -52,11 +53,17 @@ class VolkswagenSettings(BrandSettings):
   def _on_network_location_changed(self, index: int):
     if index not in (0, 1):
       return
-    ui_state.params.put("VagNetworkLocation", index, block=True)
-    ui_state.params.put_bool("OnroadCycleRequested", True)
+    try:
+      ui_state.params.put("VagNetworkLocation", index, block=True)
+      ui_state.params.put_bool("OnroadCycleRequested", True)
+    except Exception:
+      cloudlog.warning("VagNetworkLocation unavailable; restart openpilot to reload the params library")
 
   def update_settings(self):
-    value = ui_state.params.get("VagNetworkLocation")
+    try:
+      value = ui_state.params.get("VagNetworkLocation")
+    except Exception:
+      value = None
     try:
       index = 0 if value is None else int(value)
     except (TypeError, ValueError):
