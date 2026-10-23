@@ -328,6 +328,10 @@ msgstr ""
 msgid "Calibration in Progress"
 msgstr ""
 
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Camera"
+msgstr "Camera"
+
 #: openpilot/selfdrive/selfdrived/events.py
 msgid "Camera Frame Rate Low"
 msgstr ""
@@ -412,6 +416,10 @@ msgstr ""
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/steering_sub_layouts/mads_settings.py
 msgid "Choose how Automatic Lane Centering (ALC) behaves after the brake pedal is manually pressed in sunnypilot."
 msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Choose whether the J533 harness is connected at the vehicle gateway or front camera. Changing this restarts the car interface."
+msgstr "Choose whether the J533 harness is connected at the vehicle gateway or front camera. Changing this restarts the car interface."
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/models.py
 msgid "Clear Cache"
@@ -804,7 +812,6 @@ msgstr ""
 msgid "Enable your car's LKAS to engage"
 msgstr ""
 
-
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/toyota.py
 msgid "Enforce Factory Longitudinal Control"
 msgstr ""
@@ -932,6 +939,10 @@ msgstr ""
 msgid "GOOD"
 msgstr "GOOD"
 
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Gateway"
+msgstr "Gateway"
+
 #: openpilot/selfdrive/selfdrived/events.py
 msgid "Gear not D"
 msgstr ""
@@ -939,7 +950,6 @@ msgstr ""
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/models.py
 msgid "Getting the big model ready."
 msgstr ""
-
 
 #: openpilot/selfdrive/ui/widgets/pairing_dialog.py
 msgid "Go to https://connect.comma.ai on your phone"
@@ -1295,7 +1305,6 @@ msgstr ""
 msgid "Onroad Brightness Delay"
 msgstr ""
 
-
 #: openpilot/selfdrive/ui/widgets/setup.py
 msgid "Open"
 msgstr "Open"
@@ -1468,6 +1477,7 @@ msgid "REMOVE"
 msgstr "REMOVE"
 
 #: openpilot/selfdrive/ui/layouts/settings/device.py
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
 msgid "RESET"
 msgstr "RESET"
 
@@ -2133,6 +2143,10 @@ msgstr ""
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/settings.py
 msgid "Visuals"
 msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Volkswagen Connection"
+msgstr "Volkswagen Connection"
 
 #: openpilot/selfdrive/selfdrived/events.py
 msgid "WARNING: This branch is not tested"

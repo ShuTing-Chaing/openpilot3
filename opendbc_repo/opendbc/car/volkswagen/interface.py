@@ -3,7 +3,20 @@ from opendbc.car.interfaces import CarInterfaceBase
 from opendbc.car.volkswagen.carcontroller import CarController
 from opendbc.car.volkswagen.carstate import CarState
 from opendbc.car.volkswagen.radar_interface import RadarInterface
-from opendbc.car.volkswagen.values import CanBus, CAR, DBC, NetworkLocation, TransmissionType, VolkswagenFlags, VolkswagenSafetyFlags
+from opendbc.car.volkswagen.values import CanBus, CAR, DBC, NetworkLocation, TransmissionType, VolkswagenFlags, VolkswagenSafetyFlags, resolve_network_location
+
+
+def _network_location_override() -> int | None:
+  try:
+    from openpilot.common.params import Params
+    value = Params().get("VagNetworkLocation")
+  except Exception:
+    return None
+  try:
+    return None if value is None else int(value)
+  except (TypeError, ValueError):
+    return None
+
 
 class CarInterface(CarInterfaceBase):
   CarState = CarState
@@ -17,6 +30,7 @@ class CarInterface(CarInterfaceBase):
   def _get_params(ret: structs.CarParams, candidate: CAR, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:
     ret.brand = "volkswagen"
     ret.radarUnavailable = Bus.radar not in DBC[candidate]
+    network_location_override = _network_location_override()
 
     if ret.flags & VolkswagenFlags.PQ:
       # Set global PQ35/PQ46/NMS parameters
@@ -33,6 +47,7 @@ class CarInterface(CarInterfaceBase):
         ret.networkLocation = NetworkLocation.gateway
       else:
         ret.networkLocation = NetworkLocation.fwdCamera
+      ret.networkLocation = resolve_network_location(ret.networkLocation, network_location_override)
 
       ret.dashcamOnly = is_release  # Release support needs HCA timeout fix, safety validation
 
@@ -41,7 +56,7 @@ class CarInterface(CarInterfaceBase):
       safety_configs = [get_safety_config(structs.CarParams.SafetyModel.volkswagenMlb)]
       if 0x30F in fingerprint[0]:  # SWA_01
         ret.flags |= VolkswagenFlags.HAS_BSM.value
-      ret.networkLocation = NetworkLocation.gateway
+      ret.networkLocation = resolve_network_location(NetworkLocation.gateway, network_location_override)
       ret.dashcamOnly = is_release  # Release support needs HCA timeout fix, safety validation, revised J533 harness
 
     elif ret.flags & VolkswagenFlags.MEB:
@@ -65,7 +80,8 @@ class CarInterface(CarInterfaceBase):
         ret.networkLocation = NetworkLocation.gateway
       else:
         ret.networkLocation = NetworkLocation.fwdCamera
-        ret.radarUnavailable = True
+      ret.networkLocation = resolve_network_location(ret.networkLocation, network_location_override)
+      ret.radarUnavailable = ret.networkLocation == NetworkLocation.fwdCamera or Bus.radar not in DBC[candidate]
 
       if 0x24C in fingerprint[0]:  # MEB_Side_Assist_01
         ret.flags |= VolkswagenFlags.HAS_BSM.value
@@ -95,6 +111,7 @@ class CarInterface(CarInterfaceBase):
         ret.networkLocation = NetworkLocation.gateway
       else:
         ret.networkLocation = NetworkLocation.fwdCamera
+      ret.networkLocation = resolve_network_location(ret.networkLocation, network_location_override)
 
       if 0x126 in fingerprint[2]:  # HCA_01
         ret.flags |= VolkswagenFlags.STOCK_HCA_PRESENT.value

@@ -328,6 +328,10 @@ msgstr "标定无效：请重新安装设备并重新标定"
 msgid "Calibration in Progress"
 msgstr "标定进行中"
 
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Camera"
+msgstr "相机接入"
+
 #: openpilot/selfdrive/selfdrived/events.py
 msgid "Camera Frame Rate Low"
 msgstr "摄像头帧率过低"
@@ -412,6 +416,10 @@ msgstr "如果车辆已通电，更改此设置将重启 sunnypilot。"
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/steering_sub_layouts/mads_settings.py
 msgid "Choose how Automatic Lane Centering (ALC) behaves after the brake pedal is manually pressed in sunnypilot."
 msgstr "选择在 sunnypilot 中手动踩下刹车踏板后自动车道居中（ALC）的行为。"
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Choose whether the J533 harness is connected at the vehicle gateway or front camera. Changing this restarts the car interface."
+msgstr "选择 J533 线束连接在车辆网关还是前视相机。切换后会重启车辆接口。"
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/models.py
 msgid "Clear Cache"
@@ -806,7 +814,6 @@ msgstr "启用此项以强制 sunnypilot 使用扭矩横向控制转向。"
 msgid "Enable your car's LKAS to engage"
 msgstr "请开启车辆的 LKAS 以启用"
 
-
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/toyota.py
 msgid "Enforce Factory Longitudinal Control"
 msgstr "强制使用原厂纵向控制"
@@ -934,6 +941,10 @@ msgstr "摩擦"
 msgid "GOOD"
 msgstr "良好"
 
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Gateway"
+msgstr "网关接入"
+
 #: openpilot/selfdrive/selfdrived/events.py
 msgid "Gear not D"
 msgstr "挡位不在 D 挡"
@@ -941,7 +952,6 @@ msgstr "挡位不在 D 挡"
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/models.py
 msgid "Getting the big model ready."
 msgstr "正在准备大模型。"
-
 
 #: openpilot/selfdrive/ui/widgets/pairing_dialog.py
 msgid "Go to https://connect.comma.ai on your phone"
@@ -1297,7 +1307,6 @@ msgstr "行车亮度"
 msgid "Onroad Brightness Delay"
 msgstr "行车亮度延迟"
 
-
 #: openpilot/selfdrive/ui/widgets/setup.py
 msgid "Open"
 msgstr "打开"
@@ -1470,6 +1479,7 @@ msgid "REMOVE"
 msgstr "移除"
 
 #: openpilot/selfdrive/ui/layouts/settings/device.py
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
 msgid "RESET"
 msgstr "重置"
 
@@ -2138,6 +2148,10 @@ msgstr "虚拟移动摄像头视角，将模型中心向左（+值）或向右�
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/settings.py
 msgid "Visuals"
 msgstr "视觉"
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Volkswagen Connection"
+msgstr "大众接入方式"
 
 #: openpilot/selfdrive/selfdrived/events.py
 msgid "WARNING: This branch is not tested"

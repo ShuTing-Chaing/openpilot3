@@ -236,6 +236,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ToyotaStopAndGoHack", {PERSISTENT | BACKUP, BOOL, "0"}},
     {"ToyotaAftermarketBsm", {PERSISTENT | BACKUP, BOOL, "0"}},
     {"VagAvoidEPSLockout", {PERSISTENT | BACKUP, BOOL, "0"}},
+    {"VagNetworkLocation", {PERSISTENT | BACKUP, INT, "0"}},
 
     {"BlindSpot", {PERSISTENT | BACKUP, BOOL, "0"}},
 

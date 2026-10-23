@@ -665,6 +665,7 @@ msgid "Reset Calibration"
 msgstr ""
 
 #: openpilot/selfdrive/ui/layouts/settings/device.py
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
 msgid "RESET"
 msgstr ""
 
@@ -936,6 +937,10 @@ msgid "Enable Always Offroad"
 msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
+msgid "Reset Settings"
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/platform_selector.py
 msgid "Confirm"
 msgstr ""
@@ -964,11 +969,6 @@ msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
 msgid "Training Guide"
-msgstr ""
-
-
-#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
-msgid "Reset Settings"
 msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/device.py
@@ -1521,8 +1521,6 @@ msgstr ""
 msgid "Show Advanced Controls"
 msgstr ""
 
-
-
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/developer.py
 msgid "copyparty Service"
 msgstr ""
@@ -2026,7 +2024,23 @@ msgid "Scale steering torque down at low speeds to avoid EPS lockout."
 msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Choose whether the J533 harness is connected at the vehicle gateway or front camera. Changing this restarts the car interface."
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
 msgid "Avoid EPS Lockout"
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Volkswagen Connection"
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Gateway"
+msgstr ""
+
+#: openpilot/selfdrive/ui/sunnypilot/layouts/settings/vehicle/brands/volkswagen.py
+msgid "Camera"
 msgstr ""
 
 #: openpilot/selfdrive/ui/sunnypilot/onroad/speed_limit.py

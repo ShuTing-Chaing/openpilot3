@@ -13,6 +13,19 @@ from opendbc.car.vin import Vin
 Ecu = structs.CarParams.Ecu
 NetworkLocation = structs.CarParams.NetworkLocation
 TransmissionType = structs.CarParams.TransmissionType
+
+VAG_NETWORK_LOCATION_GATEWAY = 0
+VAG_NETWORK_LOCATION_CAMERA = 1
+
+
+def resolve_network_location(default: NetworkLocation, override: int | None) -> NetworkLocation:
+  if override == VAG_NETWORK_LOCATION_GATEWAY:
+    return NetworkLocation.gateway
+  if override == VAG_NETWORK_LOCATION_CAMERA:
+    return NetworkLocation.fwdCamera
+  return default
+
+
 GearShifter = structs.CarState.GearShifter
 Button = namedtuple('Button', ['event_type', 'can_addr', 'can_msg', 'values'])
 

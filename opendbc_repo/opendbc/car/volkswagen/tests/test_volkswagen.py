@@ -5,7 +5,7 @@ import unittest
 from opendbc.car import DT_CTRL
 from opendbc.car.structs import CarParams
 from opendbc.car.volkswagen.carcontroller import HCAMitigation
-from opendbc.car.volkswagen.values import CAR, CarControllerParams as CCP, FW_QUERY_CONFIG, WMI
+from opendbc.car.volkswagen.values import CAR, CarControllerParams as CCP, FW_QUERY_CONFIG, NetworkLocation, WMI, resolve_network_location
 from opendbc.car.volkswagen.fingerprints import FW_VERSIONS
 
 Ecu = CarParams.Ecu
@@ -28,6 +28,20 @@ class TestVolkswagenHCAMitigation(unittest.TestCase):
         should_nudge = actuator_value != 0 and frame == self.STUCK_TORQUE_FRAMES
         expected_torque = actuator_value - (1, -1)[actuator_value < 0] if should_nudge else actuator_value
         assert hca_mitigation.update(actuator_value, actuator_value) == expected_torque, f"{frame=}"
+
+class TestVolkswagenNetworkLocationOverride(unittest.TestCase):
+  def test_override(self):
+    assert resolve_network_location(NetworkLocation.gateway, 0) == NetworkLocation.gateway
+    assert resolve_network_location(NetworkLocation.gateway, 1) == NetworkLocation.fwdCamera
+    assert resolve_network_location(NetworkLocation.fwdCamera, 0) == NetworkLocation.gateway
+    assert resolve_network_location(NetworkLocation.fwdCamera, 1) == NetworkLocation.fwdCamera
+
+  def test_auto_and_invalid_values_preserve_detection(self):
+    assert resolve_network_location(NetworkLocation.gateway, None) == NetworkLocation.gateway
+    assert resolve_network_location(NetworkLocation.fwdCamera, None) == NetworkLocation.fwdCamera
+    assert resolve_network_location(NetworkLocation.gateway, 2) == NetworkLocation.gateway
+    assert resolve_network_location(NetworkLocation.fwdCamera, -1) == NetworkLocation.fwdCamera
+
 
 class TestVolkswagenPlatformConfigs(unittest.TestCase):
   def test_spare_part_fw_pattern(self):
