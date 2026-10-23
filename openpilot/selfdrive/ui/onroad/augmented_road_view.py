@@ -37,6 +37,8 @@ BORDER_COLORS = {
 WIDE_CAM_MAX_SPEED = 5.0  # m/s (11 mph)
 ROAD_CAM_MIN_SPEED = 10.0  # m/s (22 mph)
 INF_POINT = np.array([1000.0, 0.0, 0.0])
+CAMERA_TOGGLE_SIZE = 104
+CAMERA_TOGGLE_MARGIN = 18
 
 
 class AugmentedRoadView(CameraView, AugmentedRoadViewSP):
@@ -52,6 +54,10 @@ class AugmentedRoadView(CameraView, AugmentedRoadViewSP):
     self._matrix_cache_key = (0, 0.0, 0.0, stream_type)
     self._cached_matrix: np.ndarray | None = None
     self._content_rect = rl.Rectangle()
+    self._manual_stream_type: VisionStreamType | None = None
+    self._camera_toggle_rect = rl.Rectangle()
+    self._camera_toggle_flash_until = 0.0
+    self._camera_toggle_icon = gui_app.texture("icons/eye_open.png", 58, 32)
 
     self.model_renderer = ModelRenderer()
     self._hud_renderer = HudRenderer()
@@ -104,6 +110,7 @@ class AugmentedRoadView(CameraView, AugmentedRoadViewSP):
       ))
     self.alert_renderer.render(self._content_rect)
     self.driver_state_renderer.render(self._content_rect)
+    self._draw_camera_toggle(self._content_rect)
 
     # Custom UI extension point - add custom overlays here
     # Use self._content_rect for positioning within camera bounds
@@ -114,7 +121,10 @@ class AugmentedRoadView(CameraView, AugmentedRoadViewSP):
     # Draw colored border based on driving state
     self._draw_border(rect)
 
-  def _handle_mouse_press(self, _):
+  def _handle_mouse_press(self, mouse_pos):
+    if self._camera_toggle_rect.width and rl.check_collision_point_rec(mouse_pos, self._camera_toggle_rect):
+      self._toggle_camera_stream()
+      return
     if self._click_callback is not None:
       self._click_callback()
 
@@ -131,7 +141,9 @@ class AugmentedRoadView(CameraView, AugmentedRoadViewSP):
     rl.draw_rectangle_rounded_lines_ex(border_rect, border_roundness, 10, UI_BORDER_SIZE, border_color)
 
   def _switch_stream_if_needed(self, sm):
-    if sm['carParams'].openpilotLongitudinalControl and WIDE_CAM in self.available_streams:
+    if self._manual_stream_type in self.available_streams:
+      target = self._manual_stream_type
+    elif sm['carParams'].openpilotLongitudinalControl and WIDE_CAM in self.available_streams:
       v_ego = sm['carState'].vEgo
       if v_ego < WIDE_CAM_MAX_SPEED:
         target = WIDE_CAM
@@ -145,6 +157,60 @@ class AugmentedRoadView(CameraView, AugmentedRoadViewSP):
 
     if self.stream_type != target:
       self.switch_stream(target)
+
+  def _toggle_camera_stream(self):
+    if WIDE_CAM not in self.available_streams:
+      return
+    current = self._target_stream_type or self._stream_type
+    target = NARROW_ROAD_CAM if current == WIDE_CAM else WIDE_CAM
+    self._manual_stream_type = target
+    self._camera_toggle_flash_until = rl.get_time() + 0.2
+    self.switch_stream(target)
+
+  def _draw_camera_toggle(self, rect: rl.Rectangle):
+    if WIDE_CAM not in self.available_streams:
+      self._camera_toggle_rect = rl.Rectangle()
+      return
+
+    self._camera_toggle_rect = rl.Rectangle(
+      rect.x + rect.width - CAMERA_TOGGLE_SIZE - CAMERA_TOGGLE_MARGIN,
+      rect.y + CAMERA_TOGGLE_MARGIN,
+      CAMERA_TOGGLE_SIZE,
+      CAMERA_TOGGLE_SIZE,
+    )
+    pressed = rl.get_time() < self._camera_toggle_flash_until
+    current = self._target_stream_type or self._stream_type
+    is_wide = current == WIDE_CAM
+
+    center = rl.Vector2(
+      self._camera_toggle_rect.x + self._camera_toggle_rect.width / 2,
+      self._camera_toggle_rect.y + self._camera_toggle_rect.height / 2,
+    )
+    radius = self._camera_toggle_rect.width / 2
+    bg = rl.Color(35, 83, 61, 215) if pressed else rl.Color(4, 10, 14, 150)
+    border = rl.Color(155, 230, 185, 245) if pressed else rl.Color(255, 255, 255, 70)
+    rl.draw_circle_v(center, radius, bg)
+    rl.draw_circle_lines_v(center, radius - 1, border)
+
+    icon_pos = rl.Vector2(center.x - self._camera_toggle_icon.width / 2,
+                          center.y - self._camera_toggle_icon.height / 2)
+    rl.draw_texture_ex(self._camera_toggle_icon, icon_pos, 0.0, 1.0, rl.Color(255, 255, 255, 238))
+
+    inset = 17 if is_wide else 25
+    left = self._camera_toggle_rect.x + inset
+    right = self._camera_toggle_rect.x + self._camera_toggle_rect.width - inset
+    top = self._camera_toggle_rect.y + inset
+    bottom = self._camera_toggle_rect.y + self._camera_toggle_rect.height - inset
+    corner = 9
+    accent = rl.Color(155, 230, 185, 220) if is_wide else rl.Color(255, 255, 255, 180)
+    rl.draw_line_ex(rl.Vector2(left, top), rl.Vector2(left + corner, top), 3, accent)
+    rl.draw_line_ex(rl.Vector2(left, top), rl.Vector2(left, top + corner), 3, accent)
+    rl.draw_line_ex(rl.Vector2(right, top), rl.Vector2(right - corner, top), 3, accent)
+    rl.draw_line_ex(rl.Vector2(right, top), rl.Vector2(right, top + corner), 3, accent)
+    rl.draw_line_ex(rl.Vector2(left, bottom), rl.Vector2(left + corner, bottom), 3, accent)
+    rl.draw_line_ex(rl.Vector2(left, bottom), rl.Vector2(left, bottom - corner), 3, accent)
+    rl.draw_line_ex(rl.Vector2(right, bottom), rl.Vector2(right - corner, bottom), 3, accent)
+    rl.draw_line_ex(rl.Vector2(right, bottom), rl.Vector2(right, bottom - corner), 3, accent)
 
   def _update_calibration(self):
     # Update device camera if not already set
