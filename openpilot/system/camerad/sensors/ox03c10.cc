@@ -34,6 +34,10 @@ OX03C10::OX03C10() {
   frame_stride = (frame_width * 12 / 8) + 4;
   extra_height = 16;            // top 2 + bot 14
   frame_offset = 2;
+  // C3XL: match the mici model input resolution before modeld. This cuts the
+  // per-frame vision upload by about 49%; camera.py carries separate X/Y intrinsics.
+  out_width = 1344;
+  out_height = 760;
 
   start_reg_array.assign(std::begin(start_reg_array_ox03c10), std::end(start_reg_array_ox03c10));
   init_reg_array.assign(std::begin(init_array_ox03c10), std::end(init_array_ox03c10));

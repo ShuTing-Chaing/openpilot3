@@ -280,8 +280,8 @@ void SpectraCamera::camera_open(VisionIpcServer *v) {
 
   if (!enabled) return;
 
-  buf.out_img_width = sensor->frame_width / sensor->out_scale;
-  buf.out_img_height = (sensor->hdr_offset > 0 ? (sensor->frame_height - sensor->hdr_offset) / 2 : sensor->frame_height) / sensor->out_scale;
+  buf.out_img_width = sensor->output_width();
+  buf.out_img_height = sensor->output_height();
 
   // size is driven by all the HW that handles frames,
   // the video encoder has certain alignment requirements in this case
