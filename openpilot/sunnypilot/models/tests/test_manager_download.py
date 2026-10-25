@@ -229,6 +229,11 @@ class ManagerDownloadTestBase(OpenpilotTestCase):
 
 
 class TestManagerDownload(ManagerDownloadTestBase):
+  def test_download_urls_include_huggingface_mirror(self):
+    url = "https://huggingface.co/sunnypilot/models/resolve/main/model.pkl"
+    assert manager_module._download_urls(url) == (url, "https://hf-mirror.com/sunnypilot/models/resolve/main/model.pkl")
+    assert manager_module._download_urls("http://127.0.0.1:1234/model.pkl") == ("http://127.0.0.1:1234/model.pkl",)
+
   def test_download(self):
     artifact = self.download_file()
     assert self.read_path() == WHOLE_BODY

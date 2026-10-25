@@ -38,6 +38,10 @@ SPEED_SMOOTHING = 0.7  # weight of the previous speed sample in the published sp
 SPEED_FLOOR = 0.05 * 1024 ** 2  # bytes/s; anything slower would only display as 0.0 MB/s, so it reads as no rate
 
 
+def _mirror_url(url: str) -> str:
+  return url.replace("huggingface.co", "hf-mirror.com") if "huggingface.co" in url else url
+
+
 class DownloadCancelled(Exception):
   pass
 
