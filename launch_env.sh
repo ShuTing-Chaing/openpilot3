@@ -19,7 +19,7 @@ export QCOM_PRIORITY=12
 export FPS=30
 
 if [ -z "$AGNOS_VERSION" ]; then
-  export AGNOS_VERSION="19.7-c3xl-dev"
+  export AGNOS_VERSION="20.2"
 fi
 
 export STAGING_ROOT="/data/safe_staging"
