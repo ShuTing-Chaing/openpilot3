@@ -18,7 +18,6 @@ sunnypilot Version MR.ONE-2026 (2026-09-28)
   * system: force timezone Asia/Shanghai (Beijing)
   * system: re-enable loggerd dashcam recordings
   * agnos: patched 19.7-c3xl-dev system image with tap-reset formatting and install-time network validation disabled
-  * agnos: update C3XL system and boot images to AGNOS 20.2
   * ui: clarify camera offset label and software update prompt translations
   * updater: show download percentage and speed for Git and AGNOS updates
   * updater: check for updates while online; downloads and installs remain offroad-only
