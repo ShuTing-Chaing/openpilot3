@@ -28,6 +28,7 @@ public:
   uint32_t frame_stride;
   uint32_t frame_offset = 0;
   uint32_t extra_height = 0;
+  uint32_t out_width = 0, out_height = 0;  // explicit ISP output; 0 keeps the legacy integer out_scale behavior
   int out_scale = 1;
   int registers_offset = -1;
   int stats_offset = -1;
@@ -85,6 +86,15 @@ public:
   const int num() const {
     return static_cast<int>(image_sensor);
   };
+
+  uint32_t output_width() const {
+    return out_width > 0 ? out_width : frame_width / out_scale;
+  }
+
+  uint32_t output_height() const {
+    if (out_height > 0) return out_height;
+    return (hdr_offset > 0 ? (frame_height - hdr_offset) / 2 : frame_height) / out_scale;
+  }
 };
 
 class OX03C10 : public SensorInfo {

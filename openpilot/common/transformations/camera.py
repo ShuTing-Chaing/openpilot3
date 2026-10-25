@@ -10,6 +10,7 @@ class CameraConfig:
   width: int
   height: int
   focal_length: float
+  focal_length_y: float | None = None
 
   @property
   def size(self):
@@ -18,9 +19,10 @@ class CameraConfig:
   @property
   def intrinsics(self):
     # aka 'K' aka camera_frame_from_view_frame
+    focal_length_y = self.focal_length if self.focal_length_y is None else self.focal_length_y
     return np.array([
       [self.focal_length,  0.0, float(self.width)/2],
-      [0.0, self.focal_length, float(self.height)/2],
+      [0.0, focal_length_y, float(self.height)/2],
       [0.0,  0.0, 1.0]
     ])
 
@@ -49,6 +51,11 @@ class DeviceCameraConfig:
 _ar_ox_fisheye = CameraConfig(1928, 1208, 567.0)  # focal length probably wrong? magnification is not consistent across frame
 _os_fisheye = CameraConfig(2688 // 2, 1520 // 2, 567.0 / 4 * 3)
 _ar_ox_config = DeviceCameraConfig(CameraConfig(1928, 1208, 2648.0), _ar_ox_fisheye, _ar_ox_fisheye)
+# C3XL OX03C10 is resized to the mici 1344x760 frame in the ISP before modeld.
+_ar_ox_c3xl_fisheye = CameraConfig(1344, 760, 567.0 * 1344 / 1928, 567.0 * 760 / 1208)
+_ar_ox_c3xl_config = DeviceCameraConfig(
+  CameraConfig(1344, 760, 2648.0 * 1344 / 1928, 2648.0 * 760 / 1208),
+  _ar_ox_c3xl_fisheye, _ar_ox_c3xl_fisheye)
 _os_config = DeviceCameraConfig(CameraConfig(2688 // 2, 1520 // 2, 1522.0 * 3 / 4), _os_fisheye, _os_fisheye)
 _neo_config = DeviceCameraConfig(CameraConfig(1164, 874, 910.0), CameraConfig(816, 612, 650.0), _NoneCameraConfig())
 
@@ -67,7 +74,7 @@ DEVICE_CAMERAS: dict[tuple[str, str], DeviceCameraConfig] = {
   # simulator (emulates a tici)
   ("pc", "unknown"): _ar_ox_config,
 }
-prods = itertools.product(('tici', 'tizi', 'mici'), (('ar0231', _ar_ox_config), ('ox03c10', _ar_ox_config), ('os04c10', _os_config)))
+prods = itertools.product(('tici', 'tizi', 'mici'), (('ar0231', _ar_ox_config), ('ox03c10', _ar_ox_c3xl_config), ('os04c10', _os_config)))
 DEVICE_CAMERAS.update({(d, c[0]): c[1] for d, c in prods})
 
 # device/mesh : x->forward, y-> right, z->down
