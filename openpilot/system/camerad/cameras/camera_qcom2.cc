@@ -63,8 +63,7 @@ void CameraState::init(VisionIpcServer *v) {
 
   if (!camera.enabled) return;
 
-  const float output_scale_x = static_cast<float>(camera.sensor->frame_width) / camera.buf.out_img_width;
-  fl_pix = camera.cc.focal_len / camera.sensor->pixel_size_mm / output_scale_x;
+  fl_pix = camera.cc.focal_len / camera.sensor->pixel_size_mm / camera.sensor->out_scale;
   set_exposure_rect();
 
   dc_gain_weight = camera.sensor->dc_gain_min_weight;
